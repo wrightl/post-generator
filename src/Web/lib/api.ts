@@ -61,6 +61,26 @@ export async function setCredential(
   if (!res.ok) throw new Error("Failed to save credentials");
 }
 
+// --- Dashboard ---
+export type DashboardStats = {
+  totalPosts: number;
+  draftCount: number;
+  scheduledCount: number;
+  publishedCount: number;
+  failedCount: number;
+  byPlatform: { platform: string; count: number }[];
+  upcomingPosts: { id: number; platform: string; scheduledAt: string; topicSummary: string }[];
+  mostRecentPublished: Post | null;
+};
+
+export async function getDashboardStats(idToken: string): Promise<DashboardStats> {
+  const res = await fetch(`${API_URL}/api/dashboard/stats`, {
+    headers: { Authorization: `Bearer ${idToken}` },
+  });
+  if (!res.ok) throw new Error("Failed to fetch dashboard stats");
+  return res.json();
+}
+
 export type Post = {
   id: number;
   userId: number;
@@ -229,4 +249,74 @@ export async function generateSeries(
     throw new Error(t || "Failed to generate series");
   }
   return res.json();
+}
+
+export type GenerateSeriesStreamEvent =
+  | { seriesId: number }
+  | { post: Post }
+  | { error: string };
+
+function buildSeriesPayloadBody(payload: GenerateSeriesPayload): string {
+  return JSON.stringify({
+    topicDetail: payload.topicDetail,
+    numPosts: payload.numPosts,
+    platform: payload.platform,
+    linked: payload.linked ?? false,
+    tone: payload.tone ?? null,
+    length: payload.length ?? null,
+    generateImages: payload.generateImages ?? false,
+    tiktokScriptDurationSeconds: payload.tiktokScriptDurationSeconds ?? null,
+    startDate: payload.startDate ?? null,
+    recurrence: payload.recurrence ?? null,
+    scheduledTimeOfDay: payload.scheduledTimeOfDay ?? null,
+  });
+}
+
+export async function* generateSeriesStream(
+  idToken: string,
+  payload: GenerateSeriesPayload,
+  signal?: AbortSignal
+): AsyncGenerator<GenerateSeriesStreamEvent> {
+  const res = await fetch(`${API_URL}/api/series/generate-stream`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${idToken}`,
+      "Content-Type": "application/json",
+    },
+    body: buildSeriesPayloadBody(payload),
+    signal,
+  });
+  if (!res.ok) {
+    const t = await res.text();
+    throw new Error(t || "Failed to start series generation");
+  }
+  const reader = res.body?.getReader();
+  if (!reader) throw new Error("No response body");
+  const decoder = new TextDecoder();
+  let buffer = "";
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split("\n");
+      buffer = lines.pop() ?? "";
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed) continue;
+        const obj = JSON.parse(trimmed) as Record<string, unknown>;
+        if (typeof obj.seriesId === "number") yield { seriesId: obj.seriesId };
+        else if (obj.post != null && typeof obj.post === "object") yield { post: obj.post as Post };
+        else if (typeof obj.error === "string") yield { error: obj.error };
+      }
+    }
+    if (buffer.trim()) {
+      const obj = JSON.parse(buffer.trim()) as Record<string, unknown>;
+      if (typeof obj.seriesId === "number") yield { seriesId: obj.seriesId };
+      else if (obj.post != null && typeof obj.post === "object") yield { post: obj.post as Post };
+      else if (typeof obj.error === "string") yield { error: obj.error };
+    }
+  } finally {
+    reader.releaseLock();
+  }
 }

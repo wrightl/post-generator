@@ -27,7 +27,7 @@ const inputClass =
 const labelClass = "block text-sm font-medium text-[var(--text)]";
 
 export default function ProfilePage() {
-  const { appUser, idToken, loading: authLoading } = useAuth();
+  const { appUser, idToken, loading: authLoading, signOut } = useAuth();
   const { theme, setTheme } = useTheme();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [credentials, setCredentials] = useState<SocialCredential[]>([]);
@@ -216,11 +216,18 @@ export default function ProfilePage() {
         </div>
       )}
 
-      <p className="mt-8">
+      <div className="mt-8 flex flex-wrap items-center gap-4">
+        <button
+          type="button"
+          onClick={() => signOut()}
+          className="rounded-lg border border-[var(--border)] bg-[var(--bg)] px-4 py-2 text-sm font-medium text-[var(--text)] transition hover:bg-red-500/10 hover:border-red-400/50 hover:text-red-600"
+        >
+          Logout
+        </button>
         <Link href="/" className="text-[var(--primary)] underline hover:text-[var(--primary-hover)]">
           Back to home
         </Link>
-      </p>
+      </div>
     </main>
   );
 }

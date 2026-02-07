@@ -7,6 +7,8 @@ namespace PostGenerator.Api.Services;
 
 public class PostService : IPostService
 {
+    private const int UpcomingTake = 10;
+
     private readonly AppDbContext _db;
     private readonly IImageService _imageService;
 
@@ -105,6 +107,46 @@ public class PostService : IPostService
         post.UpdatedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync(cancellationToken);
         return ToDto(post);
+    }
+
+    public async Task<DashboardStatsDto> GetDashboardStatsAsync(int userId, CancellationToken cancellationToken = default)
+    {
+        var now = DateTime.UtcNow;
+        var posts = await _db.Posts.AsNoTracking().Where(p => p.UserId == userId).ToListAsync(cancellationToken);
+
+        var total = posts.Count;
+        var draftCount = posts.Count(p => p.Status == PostStatus.Draft);
+        var scheduledCount = posts.Count(p => p.Status == PostStatus.Scheduled);
+        var publishedCount = posts.Count(p => p.Status == PostStatus.Published);
+        var failedCount = posts.Count(p => p.Status == PostStatus.Failed);
+
+        var byPlatform = posts
+            .GroupBy(p => p.Platform.ToString())
+            .Select(g => new PostsByPlatformDto(g.Key, g.Count()))
+            .OrderByDescending(x => x.Count)
+            .ToList();
+
+        var upcomingPosts = posts
+            .Where(p => p.Status == PostStatus.Scheduled && p.ScheduledAt.HasValue && p.ScheduledAt.Value >= now)
+            .OrderBy(p => p.ScheduledAt)
+            .Take(UpcomingTake)
+            .Select(p => new UpcomingPostDto(p.Id, p.Platform.ToString(), p.ScheduledAt!.Value, p.TopicSummary))
+            .ToList();
+
+        var mostRecentPublished = posts
+            .Where(p => p.Status == PostStatus.Published && p.PublishedAt.HasValue)
+            .OrderByDescending(p => p.PublishedAt)
+            .FirstOrDefault();
+
+        return new DashboardStatsDto(
+            total,
+            draftCount,
+            scheduledCount,
+            publishedCount,
+            failedCount,
+            byPlatform,
+            upcomingPosts,
+            mostRecentPublished == null ? null : ToDto(mostRecentPublished));
     }
 
     private static PostDto ToDto(Post p) => new(p.Id, p.UserId, p.TopicSummary, p.Platform.ToString(), p.Status.ToString(), p.ScheduledAt, p.PublishedAt, p.Content, p.Script, p.ImageUrl, p.MetadataJson, p.Tone, p.Length, p.CreatedAt, p.UpdatedAt);

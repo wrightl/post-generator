@@ -129,6 +129,7 @@ app.MapGet("/ready", () => Results.Ok(new { status = "ready" }));
 
 app.MapAuthEndpoints();
 app.MapUserEndpoints();
+app.MapDashboardEndpoints();
 app.MapPostEndpoints();
 app.MapSeriesEndpoints();
 

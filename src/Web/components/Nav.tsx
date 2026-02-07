@@ -3,18 +3,37 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
-import { ThemeToggle } from "@/components/ThemeToggle";
 
 const navLinks = [
   { href: "/", label: "Home" },
   { href: "/posts", label: "Posts" },
   { href: "/generate", label: "Generate" },
-  { href: "/profile", label: "Profile" },
 ];
+
+function UserIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <circle cx="12" cy="12" r="10" />
+      <path d="M12 14a4 4 0 0 0 4-4 4 4 0 0 0-4-4 4 4 0 0 0-4 4 4 4 0 0 0 4 4z" />
+      <path d="M6 20c2-2 4-3 6-3s4 1 6 3" />
+    </svg>
+  );
+}
 
 export function Nav() {
   const pathname = usePathname();
-  const { appUser, signOut } = useAuth();
+  const { appUser } = useAuth();
+  const displayName = appUser?.name?.trim() || appUser?.email || "Profile";
 
   return (
     <nav
@@ -43,15 +62,19 @@ export function Nav() {
               {label}
             </Link>
           ))}
-          <ThemeToggle />
           {appUser && (
-            <button
-              type="button"
-              onClick={() => signOut()}
-              className="rounded-lg border border-[var(--border)] bg-[var(--bg)] px-3 py-2 text-sm font-medium text-[var(--text)] transition hover:bg-red-500/10 hover:border-red-400/50 hover:text-red-600"
+            <Link
+              href="/profile"
+              className={`flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition ${
+                pathname === "/profile"
+                  ? "bg-[var(--primary)] text-white"
+                  : "text-[var(--text)] hover:bg-[var(--border)]/50 hover:text-[var(--primary)]"
+              }`}
+              aria-label={`Profile for ${displayName}`}
             >
-              Logout
-            </button>
+              <UserIcon className="h-4 w-4 shrink-0" />
+              <span className="max-w-[120px] truncate sm:max-w-[180px]">{displayName}</span>
+            </Link>
           )}
         </div>
       </div>

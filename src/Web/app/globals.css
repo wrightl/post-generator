@@ -10,6 +10,7 @@
   --border: #e2e8f0;
   --primary: #0d9488;
   --primary-hover: #0f766e;
+  --primary-btn-text: #fff;
   --surface: #ffffff;
   --surface-hover: #f1f5f9;
   --focus-ring: #0d9488;
@@ -25,6 +26,7 @@
   --border: #334155;
   --primary: #2dd4bf;
   --primary-hover: #5eead4;
+  --primary-btn-text: #0f172a; /* dark text on light teal for contrast */
   --surface: #1e293b;
   --surface-hover: #334155;
   --focus-ring: #2dd4bf;
@@ -53,6 +55,14 @@ a {
 }
 a:hover {
   color: var(--primary-hover);
+}
+
+/* Primary buttons: ensure caption is readable (global a color would otherwise match background) */
+[class*="bg-[var(--primary)]"] {
+  color: var(--primary-btn-text);
+}
+[class*="bg-[var(--primary)]"]:hover {
+  color: var(--primary-btn-text);
 }
 
 /* Skip link for a11y */

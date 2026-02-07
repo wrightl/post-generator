@@ -1,4 +1,3 @@
-using PostGenerator.Api.Data;
 using PostGenerator.Api.Models;
 using PostGenerator.Core;
 
@@ -12,4 +11,5 @@ public interface IPostService
     Task<PostDto?> UpdateAsync(int userId, int postId, UpdatePostRequest request, CancellationToken cancellationToken = default);
     Task<bool> DeleteAsync(int userId, int postId, CancellationToken cancellationToken = default);
     Task<PostDto?> GenerateImageAsync(int userId, int postId, string? prompt, CancellationToken cancellationToken = default);
+    Task<DashboardStatsDto> GetDashboardStatsAsync(int userId, CancellationToken cancellationToken = default);
 }

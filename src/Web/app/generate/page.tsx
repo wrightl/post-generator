@@ -1,7 +1,7 @@
 "use client";
 
 import { useAuth } from "@/contexts/AuthContext";
-import { generateSeries, type GenerateSeriesPayload } from "@/lib/api";
+import type { GenerateSeriesPayload } from "@/lib/api";
 import { VoiceInput } from "@/components/VoiceInput";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -40,7 +40,9 @@ export default function GeneratePage() {
     setTopicDetail((prev) => (prev ? `${prev} ${text}` : text));
   }, []);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const PENDING_PAYLOAD_KEY = "postGenerator.pendingSeriesPayload";
+
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!idToken || !topicDetail.trim()) return;
     setError(null);
@@ -60,10 +62,11 @@ export default function GeneratePage() {
       };
       if (platform === "TikTok" && typeof tiktokScriptDurationSeconds === "number")
         payload.tiktokScriptDurationSeconds = tiktokScriptDurationSeconds;
-      await generateSeries(idToken, payload);
-      router.push("/posts");
+      if (typeof sessionStorage !== "undefined")
+        sessionStorage.setItem(PENDING_PAYLOAD_KEY, JSON.stringify(payload));
+      router.push("/posts/generating");
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Generation failed");
+      setError(e instanceof Error ? e.message : "Failed to start generation");
     } finally {
       setSubmitting(false);
     }

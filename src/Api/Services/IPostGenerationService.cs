@@ -14,4 +14,6 @@ public record GeneratedPostItem(string Content, string? Script, string? Hashtags
 public interface IPostGenerationService
 {
     Task<IReadOnlyList<GeneratedPostItem>> GeneratePostsAsync(GeneratePostOptions options, CancellationToken cancellationToken = default);
+
+    Task<GeneratedPostItem?> GenerateSinglePostAsync(GeneratePostOptions options, int index, IReadOnlyList<string>? previousContents, CancellationToken cancellationToken = default);
 }
