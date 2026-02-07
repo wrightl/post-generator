@@ -1,0 +1,58 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Build
+.next/
+out/
+dist/
+build/
+*.dll
+*.pdb
+*.exe
+bin/
+obj/
+[Bb]in/
+[Oo]bj/
+
+# IDE
+.idea/
+.vscode/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# Env
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+*.env
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Azure
+.azure/
+*.pubxml
+
+# Test
+coverage/
+*.lcov
+TestResults/
+
+# Secrets
+appsettings.Development.json
+secrets.json
+**/appsettings.*.local.json
+
+.secrets

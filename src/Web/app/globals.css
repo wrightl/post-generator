@@ -1,0 +1,87 @@
+@import "tailwindcss";
+
+/* Design tokens – used by Tailwind and components */
+:root,
+[data-theme="light"] {
+  --bg: #fafbfc;
+  --bg-gradient: linear-gradient(135deg, #f0fdfa 0%, #fafbfc 50%, #f0f9ff 100%);
+  --text: #0f172a;
+  --text-muted: #475569;
+  --border: #e2e8f0;
+  --primary: #0d9488;
+  --primary-hover: #0f766e;
+  --surface: #ffffff;
+  --surface-hover: #f1f5f9;
+  --focus-ring: #0d9488;
+  --shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+  --radius: 0.75rem;
+}
+
+[data-theme="dark"] {
+  --bg: #0f172a;
+  --bg-gradient: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%);
+  --text: #f1f5f9;
+  --text-muted: #94a3b8;
+  --border: #334155;
+  --primary: #2dd4bf;
+  --primary-hover: #5eead4;
+  --surface: #1e293b;
+  --surface-hover: #334155;
+  --focus-ring: #2dd4bf;
+  --shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+  --radius: 0.75rem;
+}
+
+*:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+body {
+  background: var(--bg);
+  background-image: var(--bg-gradient);
+  background-attachment: fixed;
+  color: var(--text);
+  font-family: system-ui, -apple-system, sans-serif;
+  line-height: 1.6;
+  transition: background 0.3s ease, color 0.2s ease;
+}
+
+a {
+  color: var(--primary);
+  transition: color 0.15s ease;
+}
+a:hover {
+  color: var(--primary-hover);
+}
+
+/* Skip link for a11y */
+.skip-link {
+  position: absolute;
+  top: -100px;
+  left: 8px;
+  padding: 8px 12px;
+  background: var(--primary);
+  color: #fff;
+  z-index: 100;
+  border-radius: var(--radius);
+  transition: top 0.2s ease;
+}
+.skip-link:focus {
+  top: 8px;
+}
+
+/* Nav bar */
+.nav-bar {
+  box-shadow: var(--shadow);
+  transition: box-shadow 0.2s ease;
+}
+
+/* Subtle fun: gentle pulse on primary buttons (optional) */
+@keyframes subtle-glow {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.92; }
+}
+.button-fun:hover {
+  animation: subtle-glow 2s ease-in-out infinite;
+}

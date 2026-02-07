@@ -1,0 +1,45 @@
+name: CD
+
+on:
+  push:
+    branches: [main]
+
+env:
+  RESOURCE_GROUP: ${{ vars.RESOURCE_GROUP || 'rg-postgenerator-dev' }}
+  LOCATION: ${{ vars.LOCATION || 'westeurope' }}
+  AZURE_ENV_NAME: dev
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: azure
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Install Azure Developer CLI
+        uses: Azure/setup-azd@v2
+
+      - name: Create resource group
+        run: |
+          az group create --name ${{ env.RESOURCE_GROUP }} --location ${{ env.LOCATION }} --output none
+
+      - name: Configure azd environment
+        run: |
+          SUB_ID=$(az account show --query id -o tsv)
+          azd env new ${{ env.AZURE_ENV_NAME }} --subscription "$SUB_ID" --location "${{ env.LOCATION }}" 2>/dev/null || true
+          azd env select ${{ env.AZURE_ENV_NAME }}
+          azd env set AZURE_RESOURCE_GROUP ${{ env.RESOURCE_GROUP }}
+          azd env set AZURE_LOCATION ${{ env.LOCATION }}
+          azd env set LOCAL_DEV_ONLY "false"
+          if [ "${{ env.LOCATION }}" = "westeurope" ]; then azd env set DEPLOY_IMAGE_MODEL "false"; else azd env set DEPLOY_IMAGE_MODEL "true"; fi
+
+      - name: Provision infrastructure
+        run: azd provision --no-prompt
+
+      - name: Deploy application
+        run: azd deploy --no-prompt

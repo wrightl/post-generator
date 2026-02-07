@@ -1,0 +1,14 @@
+# Azure Developer CLI (azd) project
+# https://learn.microsoft.com/azure/developer/azure-developer-cli/azd-schema
+name: postgenerator
+services:
+  api:
+    project: src/Api
+    language: docker
+    host: containerapp
+  function:
+    project: src/Function
+    language: dotnet
+    host: function
+infra:
+  path: infra
