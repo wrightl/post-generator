@@ -15,6 +15,7 @@ public static class SeriesEndpoints
     {
         app.MapPost("/api/series/generate", Generate).RequireAuthorization().AddEndpointFilter<RequireCurrentUserFilter>().AddEndpointFilter<ValidationFilter<GenerateSeriesRequest>>();
         app.MapPost("/api/series/generate-stream", GenerateStream).RequireAuthorization().AddEndpointFilter<RequireCurrentUserFilter>().AddEndpointFilter<ValidationFilter<GenerateSeriesRequest>>();
+        app.MapPost("/api/series/publish-generated", PublishGenerated).RequireAuthorization().AddEndpointFilter<RequireCurrentUserFilter>().AddEndpointFilter<ValidationFilter<PublishGeneratedSeriesRequest>>();
     }
 
     private static async Task<IResult> Generate(
@@ -26,6 +27,16 @@ public static class SeriesEndpoints
         var result = await seriesService.GenerateAsync(currentUser.UserId!.Value, req, ct);
         if (result == null) return Results.BadRequest("No posts generated.");
         return Results.Ok(new { seriesId = result.Value.SeriesId, postIds = result.Value.PostIds });
+    }
+
+    private static async Task<IResult> PublishGenerated(
+        PublishGeneratedSeriesRequest req,
+        ICurrentUserService currentUser,
+        ISeriesService seriesService,
+        CancellationToken ct)
+    {
+        var (seriesId, postIds) = await seriesService.PublishGeneratedSeriesAsync(currentUser.UserId!.Value, req, ct);
+        return Results.Ok(new { seriesId, postIds });
     }
 
     private static IResult GenerateStream(

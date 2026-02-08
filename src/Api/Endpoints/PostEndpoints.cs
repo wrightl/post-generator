@@ -16,19 +16,32 @@ public static class PostEndpoints
         app.MapPatch("/api/posts/{id:int}", Update).RequireAuthorization().AddEndpointFilter<RequireCurrentUserFilter>().AddEndpointFilter<ValidationFilter<UpdatePostRequest>>();
         app.MapDelete("/api/posts/{id:int}", Delete).RequireAuthorization().AddEndpointFilter<RequireCurrentUserFilter>();
         app.MapPost("/api/posts/{id:int}/generate-image", GenerateImage).RequireAuthorization().AddEndpointFilter<RequireCurrentUserFilter>();
+        app.MapPost("/api/posts/{id:int}/publish-now", PublishNow).RequireAuthorization().AddEndpointFilter<RequireCurrentUserFilter>();
+        app.MapPost("/api/posts/{id:int}/refresh-engagement", RefreshEngagement).RequireAuthorization().AddEndpointFilter<RequireCurrentUserFilter>();
     }
+
+    private const int DefaultPageSize = 20;
+    private const int MaxPageSize = 100;
 
     private static async Task<IResult> List(
         ICurrentUserService currentUser,
         IPostService postService,
-        PostPlatform? platform,
-        PostStatus? status,
+        string[]? platform,
+        string[]? status,
         DateTime? from,
         DateTime? to,
+        int? page,
+        int? pageSize,
         CancellationToken ct)
     {
-        var list = await postService.ListAsync(currentUser.UserId!.Value, platform, status, from, to, ct);
-        return Results.Ok(list);
+        var effectivePage = Math.Max(1, page ?? 1);
+        var effectivePageSize = Math.Clamp(pageSize ?? DefaultPageSize, 1, MaxPageSize);
+        var skip = (effectivePage - 1) * effectivePageSize;
+        var take = effectivePageSize;
+        var platforms = platform?.Length > 0 ? platform : null;
+        var statuses = status?.Length > 0 ? status : null;
+        var (items, totalCount) = await postService.ListAsync(currentUser.UserId!.Value, platforms, statuses, from, to, skip, take, ct);
+        return Results.Ok(new { items, totalCount });
     }
 
     private static async Task<IResult> GetById(
@@ -91,6 +104,28 @@ public static class PostEndpoints
     {
         var post = await postService.GenerateImageAsync(currentUser.UserId!.Value, id, request?.Prompt, ct);
         if (post == null) return Results.BadRequest("Post not found or image generation failed.");
+        return Results.Ok(post);
+    }
+
+    private static async Task<IResult> PublishNow(
+        int id,
+        ICurrentUserService currentUser,
+        IPostService postService,
+        CancellationToken ct)
+    {
+        var post = await postService.PublishNowAsync(currentUser.UserId!.Value, id, ct);
+        if (post == null) return Results.BadRequest("Post not found or is not a draft.");
+        return Results.Ok(post);
+    }
+
+    private static async Task<IResult> RefreshEngagement(
+        int id,
+        ICurrentUserService currentUser,
+        IEngagementService engagementService,
+        CancellationToken ct)
+    {
+        var post = await engagementService.RefreshEngagementAsync(currentUser.UserId!.Value, id, ct);
+        if (post == null) return Results.NotFound();
         return Results.Ok(post);
     }
 }

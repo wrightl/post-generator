@@ -15,6 +15,12 @@ param localDevOnly bool = false
 @description('When true, deploy dall-e-3 image model. Set false in regions where Standard SKU is not supported (e.g. West Europe).')
 param deployImageModel bool = true
 
+@description('When localDevOnly, region for chat (GPT). Ignored when localDevOnly is false.')
+param openAIChatLocation string = 'westeurope'
+
+@description('When localDevOnly, region for image (DALL-E). Ignored when localDevOnly is false.')
+param openAIImageLocation string = 'centralsweden'
+
 @description('Initial API container image (replaced by CD)')
 param apiImage string = 'mcr.microsoft.com/azuredocs/containerapps-helloworld:latest'
 
@@ -26,6 +32,8 @@ var functionAppName = '${baseName}-func-${environmentName}'
 var storageName = toLower(replace('${baseName}${uniqueSuffix}', '-', ''))
 var logAnalyticsName = '${baseName}-logs-${environmentName}'
 var openAIName = '${baseName}-openai-${environmentName}-${uniqueSuffix}'
+var openAIChatName = '${baseName}-openai-chat-${environmentName}-${uniqueSuffix}'
+var openAIImageName = '${baseName}-openai-image-${environmentName}-${uniqueSuffix}'
 
 resource logAnalytics 'Microsoft.OperationalInsights/workspaces@2022-10-01' = if (!localDevOnly) {
   name: logAnalyticsName
@@ -52,7 +60,47 @@ resource storage 'Microsoft.Storage/storageAccounts@2023-01-01' = if (!localDevO
   sku: { name: 'Standard_LRS' }
 }
 
-resource openai 'Microsoft.CognitiveServices/accounts@2024-10-01' = {
+// Local dev: separate accounts so GPT can be in West Europe and DALL-E in Sweden Central regardless of RG location.
+resource openaiChatAccount 'Microsoft.CognitiveServices/accounts@2024-10-01' = if (localDevOnly) {
+  name: openAIChatName
+  location: openAIChatLocation
+  kind: 'OpenAI'
+  sku: { name: 'S0' }
+  properties: {}
+}
+
+resource openaiChatAccountDeployment 'Microsoft.CognitiveServices/accounts/deployments@2023-05-01' = if (localDevOnly) {
+  parent: openaiChatAccount
+  name: 'gpt-4o'
+  sku: { name: 'GlobalStandard', capacity: 10 }
+  properties: {
+    model: { name: 'gpt-4o', format: 'OpenAI' }
+    raiPolicyName: 'Microsoft.Default'
+    versionUpgradeOption: 'OnceCurrentVersionExpired'
+  }
+}
+
+resource openaiImageAccount 'Microsoft.CognitiveServices/accounts@2024-10-01' = if (localDevOnly && deployImageModel) {
+  name: openAIImageName
+  location: openAIImageLocation
+  kind: 'OpenAI'
+  sku: { name: 'S0' }
+  properties: {}
+}
+
+resource openaiImageAccountDeployment 'Microsoft.CognitiveServices/accounts/deployments@2023-05-01' = if (localDevOnly && deployImageModel) {
+  parent: openaiImageAccount
+  name: 'dall-e-3'
+  sku: { name: 'Standard', capacity: 1 }
+  properties: {
+    model: { name: 'dall-e-3', format: 'OpenAI' }
+    raiPolicyName: 'Microsoft.Default'
+    versionUpgradeOption: 'OnceCurrentVersionExpired'
+  }
+}
+
+// Full deploy: single account in resource group location (dall-e-3 only when deployImageModel and supported in region).
+resource openai 'Microsoft.CognitiveServices/accounts@2024-10-01' = if (!localDevOnly) {
   name: openAIName
   location: location
   kind: 'OpenAI'
@@ -60,8 +108,7 @@ resource openai 'Microsoft.CognitiveServices/accounts@2024-10-01' = {
   properties: {}
 }
 
-// GlobalStandard works in all regions (e.g. West Europe); regional 'Standard' is not available for all models everywhere.
-resource openaiChatDeployment 'Microsoft.CognitiveServices/accounts/deployments@2023-05-01' = {
+resource openaiChatDeployment 'Microsoft.CognitiveServices/accounts/deployments@2023-05-01' = if (!localDevOnly) {
   parent: openai
   name: 'gpt-4o'
   sku: { name: 'GlobalStandard', capacity: 10 }
@@ -72,8 +119,7 @@ resource openaiChatDeployment 'Microsoft.CognitiveServices/accounts/deployments@
   }
 }
 
-// dall-e-3 only supports Standard SKU (not GlobalStandard). Standard for dall-e-3 is not available in West Europe; set deployImageModel=false there.
-resource openaiImageDeployment 'Microsoft.CognitiveServices/accounts/deployments@2023-05-01' = if (deployImageModel) {
+resource openaiImageDeployment 'Microsoft.CognitiveServices/accounts/deployments@2023-05-01' = if (!localDevOnly && deployImageModel) {
   parent: openai
   name: 'dall-e-3'
   sku: { name: 'Standard', capacity: 1 }
@@ -172,6 +218,9 @@ output acrName string = !localDevOnly ? acr.name : ''
 output apiAppName string = !localDevOnly ? apiApp.name : ''
 output apiAppFqdn string = !localDevOnly ? apiApp.properties.configuration.ingress.fqdn : ''
 output functionAppName string = !localDevOnly ? functionApp.name : ''
-output openAIEndpoint string = openai.properties.endpoint
+output openAIEndpoint string = localDevOnly ? openaiChatAccount.properties.endpoint : openai.properties.endpoint
+output openAIImageEndpoint string = localDevOnly && deployImageModel ? openaiImageAccount.properties.endpoint : (!localDevOnly && deployImageModel ? openai.properties.endpoint : '')
+output openAIImageAccountName string = localDevOnly && deployImageModel ? openaiImageAccount.name : ''
+output openAIChatAccountName string = localDevOnly ? openaiChatAccount.name : ''
 output storageAccountName string = !localDevOnly ? storage.name : ''
 output resourceGroupName string = resourceGroup().name

@@ -68,6 +68,8 @@ func start
 | `Mailgun__Domain` | Mailgun sending domain |
 | `Mailgun__FromAddress` | From email address |
 
+**Local development (API):** Do not commit `appsettings.Development.json`. Use **dotnet user-secrets** for sensitive values: from `src/Api` run e.g. `dotnet user-secrets set "AzureOpenAI:ApiKey" "your-key"`. See [Safe storage of app secrets in development](https://learn.microsoft.com/en-us/aspnet/core/security/app-secrets).
+
 ### Web (`.env.local` or build env)
 
 | Key | Description |

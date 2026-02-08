@@ -1,6 +1,8 @@
+using System.Text.Json;
 using System.Threading.RateLimiting;
 using Azure.Storage.Blobs;
 using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Http.Json;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
@@ -21,6 +23,7 @@ builder.Services.Configure<FirebaseOptions>(builder.Configuration.GetSection(Fir
 builder.Services.Configure<AzureOpenAIOptions>(builder.Configuration.GetSection(AzureOpenAIOptions.SectionName));
 builder.Services.Configure<BlobStorageOptions>(builder.Configuration.GetSection(BlobStorageOptions.SectionName));
 builder.Services.Configure<MailgunOptions>(builder.Configuration.GetSection(MailgunOptions.SectionName));
+builder.Services.ConfigureHttpJsonOptions(options => options.SerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase);
 builder.Services.AddHttpClient();
 builder.Services.AddScoped<IMailgunNotificationService, MailgunNotificationService>();
 builder.Services.AddScoped<IPostGenerationService, PostGenerationService>();
@@ -30,6 +33,7 @@ builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IPostService, PostService>();
+builder.Services.AddScoped<IEngagementService, EngagementService>();
 builder.Services.AddScoped<ISeriesService, SeriesService>();
 
 builder.Services.AddValidatorsFromAssemblyContaining<CreatePostRequestValidator>();

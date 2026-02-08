@@ -8,7 +8,7 @@ public class CreatePostRequestValidator : AbstractValidator<CreatePostRequest>
 {
     public CreatePostRequestValidator()
     {
-        RuleFor(x => x.TopicSummary).NotEmpty().MaximumLength(2000);
+        RuleFor(x => x.TopicSummary).NotEmpty().MaximumLength(500);
         RuleFor(x => x.Platform)
             .NotEmpty()
             .Must(v => Enum.TryParse<PostPlatform>(v, true, out _))

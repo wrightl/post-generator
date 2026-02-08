@@ -1,3 +1,5 @@
+using System.Data;
+using System.Text.Json;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
@@ -5,6 +7,10 @@ using PostGenerator.Core;
 
 namespace PostGenerator.Function.Services;
 
+/// <summary>
+/// Runs the scheduled publish job: loads due posts from SQL, publishes via platform clients, updates Posts and PublishLogs.
+/// Uses raw ADO.NET (SqlConnection) rather than EF Core to avoid request-scoped DbContext in the Function worker and to keep the Function deployable without the Api's EF migrations runtime.
+/// </summary>
 public class PublishRunner
 {
     private readonly string _connectionString;
@@ -22,6 +28,32 @@ public class PublishRunner
         _publishers = publishers.ToList();
         _mailgun = mailgun;
         _logger = logger;
+    }
+
+    /// <summary>Loads CredentialJson from UserSocialCredentials for the given user and platform. Returns null if not found or invalid.</summary>
+    private async Task<IReadOnlyDictionary<string, string>?> LoadCredentialsAsync(int userId, PostPlatform platform, CancellationToken ct)
+    {
+        if (string.IsNullOrEmpty(_connectionString)) return null;
+        var platformName = platform.ToString();
+        await using var conn = new SqlConnection(_connectionString);
+        await conn.OpenAsync(ct);
+        await using var cmd = conn.CreateCommand();
+        cmd.CommandText = "SELECT CredentialJson FROM UserSocialCredentials WHERE UserId = @userId AND Platform = @platform";
+        cmd.Parameters.Add(new SqlParameter("@userId", SqlDbType.Int) { Value = userId });
+        cmd.Parameters.Add(new SqlParameter("@platform", SqlDbType.NVarChar, 32) { Value = platformName });
+        await using var r = await cmd.ExecuteReaderAsync(ct);
+        if (!await r.ReadAsync(ct)) return null;
+        var json = r.IsDBNull(0) ? null : r.GetString(0);
+        if (string.IsNullOrWhiteSpace(json)) return null;
+        try
+        {
+            var dict = JsonSerializer.Deserialize<Dictionary<string, string>>(json);
+            return dict?.Count > 0 ? dict : null;
+        }
+        catch
+        {
+            return null;
+        }
     }
 
     public async Task RunAsync(CancellationToken ct = default)
@@ -43,7 +75,7 @@ public class PublishRunner
                 FROM Posts p
                 INNER JOIN Users u ON u.Id = p.UserId
                 WHERE p.ScheduledAt <= GETUTCDATE() AND p.Status = @scheduled";
-            cmd.Parameters.AddWithValue("@scheduled", (int)PostStatus.Scheduled);
+            cmd.Parameters.Add(new SqlParameter("@scheduled", SqlDbType.Int) { Value = (int)PostStatus.Scheduled });
             await using var r = await cmd.ExecuteReaderAsync(ct);
             while (await r.ReadAsync(ct))
             {
@@ -64,7 +96,11 @@ public class PublishRunner
         foreach (var post in due)
         {
             var publisher = _publishers.FirstOrDefault(x => x.Platform == post.Platform);
-            var ok = publisher != null && await publisher.PublishAsync(post, ct);
+            var credentials = await LoadCredentialsAsync(post.UserId, post.Platform, ct);
+            if (credentials == null && publisher != null)
+                _logger.LogDebug("No per-user credentials for user {UserId} platform {Platform}, publisher may use app config", post.UserId, post.Platform);
+            var result = publisher != null ? await publisher.PublishAsync(post, credentials, ct) : PublishResult.Failed;
+            var ok = result.Success;
             if (publisher == null)
                 _logger.LogWarning("No publisher for platform {Platform}, post {PostId} marked failed", post.Platform, post.Id);
 
@@ -80,6 +116,7 @@ public class PublishRunner
             }
 
             var status = ok ? PostStatus.Published : PostStatus.Failed;
+            var externalPostId = result.ExternalPostId;
             await using (var conn = new SqlConnection(_connectionString))
             {
                 await conn.OpenAsync(ct);
@@ -88,9 +125,10 @@ public class PublishRunner
                 {
                     var updateCmd = conn.CreateCommand();
                     updateCmd.Transaction = tran;
-                    updateCmd.CommandText = "UPDATE Posts SET Status = @status, PublishedAt = GETUTCDATE() WHERE Id = @id";
-                    updateCmd.Parameters.AddWithValue("@status", (int)status);
-                    updateCmd.Parameters.AddWithValue("@id", post.Id);
+                    updateCmd.CommandText = "UPDATE Posts SET Status = @status, PublishedAt = GETUTCDATE(), ExternalPostId = @externalPostId WHERE Id = @id";
+                    updateCmd.Parameters.Add(new SqlParameter("@status", SqlDbType.Int) { Value = (int)status });
+                    updateCmd.Parameters.Add(new SqlParameter("@externalPostId", SqlDbType.NVarChar, 512) { Value = string.IsNullOrEmpty(externalPostId) ? (object)DBNull.Value : externalPostId });
+                    updateCmd.Parameters.Add(new SqlParameter("@id", SqlDbType.Int) { Value = post.Id });
                     await updateCmd.ExecuteNonQueryAsync(ct);
 
                     var logCmd = conn.CreateCommand();
@@ -98,11 +136,11 @@ public class PublishRunner
                     logCmd.CommandText = @"
                         INSERT INTO PublishLogs (PostId, Platform, Succeeded, ErrorMessage, MailgunSentAt, CreatedAt)
                         VALUES (@postId, @platform, @succeeded, @errorMessage, @mailgunSentAt, GETUTCDATE())";
-                    logCmd.Parameters.AddWithValue("@postId", post.Id);
-                    logCmd.Parameters.AddWithValue("@platform", (int)post.Platform);
-                    logCmd.Parameters.AddWithValue("@succeeded", ok);
-                    logCmd.Parameters.AddWithValue("@errorMessage", (object?)null);
-                    logCmd.Parameters.AddWithValue("@mailgunSentAt", (object?)mailgunSentAt ?? DBNull.Value);
+                    logCmd.Parameters.Add(new SqlParameter("@postId", SqlDbType.Int) { Value = post.Id });
+                    logCmd.Parameters.Add(new SqlParameter("@platform", SqlDbType.Int) { Value = (int)post.Platform });
+                    logCmd.Parameters.Add(new SqlParameter("@succeeded", SqlDbType.Bit) { Value = ok });
+                    logCmd.Parameters.Add(new SqlParameter("@errorMessage", SqlDbType.NVarChar, 2000) { Value = DBNull.Value });
+                    logCmd.Parameters.Add(new SqlParameter("@mailgunSentAt", SqlDbType.DateTime2) { Value = (object?)mailgunSentAt ?? DBNull.Value });
                     await logCmd.ExecuteNonQueryAsync(ct);
 
                     tran.Commit();

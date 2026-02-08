@@ -72,7 +72,15 @@ export function Nav() {
               }`}
               aria-label={`Profile for ${displayName}`}
             >
-              <UserIcon className="h-4 w-4 shrink-0" />
+              {appUser.avatarUrl ? (
+                <img
+                  src={appUser.avatarUrl}
+                  alt=""
+                  className="h-6 w-6 shrink-0 rounded-full object-cover ring-1 ring-[var(--border)]"
+                />
+              ) : (
+                <UserIcon className="h-4 w-4 shrink-0" />
+              )}
               <span className="max-w-[120px] truncate sm:max-w-[180px]">{displayName}</span>
             </Link>
           )}

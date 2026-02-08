@@ -21,9 +21,9 @@ public class SkoolPublisher : IPostPublisher
         _logger = logger;
     }
 
-    public Task<bool> PublishAsync(PostToPublish post, CancellationToken ct = default)
+    public Task<PublishResult> PublishAsync(PostToPublish post, IReadOnlyDictionary<string, string>? credentials, CancellationToken ct = default)
     {
         _logger.LogWarning("Skool create post not in API. Post {PostId} skipped. Config keys for future use: Skool:ApiKey (x-api-secret), Skool:SessionId, Skool:GroupId", post.Id);
-        return Task.FromResult(false);
+        return Task.FromResult(PublishResult.Failed);
     }
 }

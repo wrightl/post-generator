@@ -24,15 +24,19 @@ public class ImageService : IImageService
 
     public async Task<string?> GenerateAndUploadAsync(string prompt, string fileName, CancellationToken cancellationToken = default)
     {
-        if (string.IsNullOrEmpty(_openAIOptions.Endpoint) || string.IsNullOrEmpty(_openAIOptions.ApiKey))
+        var endpoint = !string.IsNullOrEmpty(_openAIOptions.ImageEndpoint) ? _openAIOptions.ImageEndpoint : _openAIOptions.Endpoint;
+        var apiKey = !string.IsNullOrEmpty(_openAIOptions.ImageEndpoint) && !string.IsNullOrEmpty(_openAIOptions.ImageApiKey)
+            ? _openAIOptions.ImageApiKey
+            : _openAIOptions.ApiKey;
+        if (string.IsNullOrEmpty(endpoint) || string.IsNullOrEmpty(apiKey))
             return null;
         if (string.IsNullOrEmpty(_blobOptions.ConnectionString))
             return null;
 
         var client = _httpClientFactory.CreateClient();
-        client.DefaultRequestHeaders.Add("api-key", _openAIOptions.ApiKey);
+        client.DefaultRequestHeaders.Add("api-key", apiKey);
 
-        var url = $"{_openAIOptions.Endpoint.TrimEnd('/')}/openai/deployments/{Uri.EscapeDataString(_openAIOptions.ImageDeploymentName)}/images/generations?api-version=2024-02-15-preview";
+        var url = $"{endpoint.TrimEnd('/')}/openai/deployments/{Uri.EscapeDataString(_openAIOptions.ImageDeploymentName)}/images/generations?api-version=2024-02-15-preview";
         var body = new
         {
             prompt,
@@ -51,9 +55,8 @@ public class ImageService : IImageService
         var imageUrl = data[0].GetProperty("url").GetString();
         if (string.IsNullOrEmpty(imageUrl)) return null;
 
-        var imageBytes = await client.GetByteArrayAsync(imageUrl, cancellationToken);
         var blobClient = new BlobClient(_blobOptions.ConnectionString, _blobOptions.ContainerName, fileName);
-        await using var stream = new MemoryStream(imageBytes);
+        await using var stream = await client.GetStreamAsync(imageUrl, cancellationToken);
         await blobClient.UploadAsync(stream, overwrite: true, cancellationToken);
         return blobClient.Uri.ToString();
     }

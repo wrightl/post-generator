@@ -7,6 +7,9 @@ public interface ISeriesService
     /// <summary>Generate a series and its posts. Returns (seriesId, postIds) or null if generation failed.</summary>
     Task<(int SeriesId, IReadOnlyList<int> PostIds)?> GenerateAsync(int userId, GenerateSeriesRequest request, CancellationToken cancellationToken = default);
 
-    /// <summary>Generate a series and its posts one at a time, invoking onPost for each saved post. Throws on failure.</summary>
+    /// <summary>Generate a series and its posts one at a time, streaming each post without persisting. Throws on failure.</summary>
     Task GenerateStreamAsync(int userId, GenerateSeriesRequest request, Func<int, PostDto, CancellationToken, Task> onPost, CancellationToken cancellationToken = default);
+
+    /// <summary>Persist a previously generated series and its posts to the database. Returns (seriesId, postIds).</summary>
+    Task<(int SeriesId, IReadOnlyList<int> PostIds)> PublishGeneratedSeriesAsync(int userId, PublishGeneratedSeriesRequest request, CancellationToken cancellationToken = default);
 }

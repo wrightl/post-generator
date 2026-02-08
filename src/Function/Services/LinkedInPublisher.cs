@@ -25,15 +25,15 @@ public class LinkedInPublisher : IPostPublisher
         _logger = logger;
     }
 
-    public async Task<bool> PublishAsync(PostToPublish post, CancellationToken ct = default)
+    public async Task<PublishResult> PublishAsync(PostToPublish post, IReadOnlyDictionary<string, string>? credentials, CancellationToken ct = default)
     {
-        var accessToken = _config["LinkedIn:AccessToken"];
-        var personUrn = _config["LinkedIn:PersonUrn"];
+        var accessToken = (credentials != null && credentials.TryGetValue("AccessToken", out var at) ? at : null) ?? _config["LinkedIn:AccessToken"];
+        var personUrn = (credentials != null && credentials.TryGetValue("PersonUrn", out var pu) ? pu : null) ?? _config["LinkedIn:PersonUrn"];
 
         if (string.IsNullOrEmpty(accessToken))
         {
             _logger.LogWarning("LinkedIn publisher skipped: LinkedIn:AccessToken not configured");
-            return false;
+            return PublishResult.Failed;
         }
 
         try
@@ -51,7 +51,7 @@ public class LinkedInPublisher : IPostPublisher
                 if (string.IsNullOrEmpty(personUrn))
                 {
                     _logger.LogError("LinkedIn /me response missing id");
-                    return false;
+                    return PublishResult.Failed;
                 }
             }
 
@@ -87,13 +87,25 @@ public class LinkedInPublisher : IPostPublisher
             req.Content = new StringContent(json, Encoding.UTF8, "application/json");
             using var resp = await client.SendAsync(req, ct);
             resp.EnsureSuccessStatusCode();
+            string? externalId = null;
+            var respBody = await resp.Content.ReadAsStringAsync(ct);
+            if (!string.IsNullOrEmpty(respBody))
+            {
+                try
+                {
+                    var doc = JsonDocument.Parse(respBody);
+                    if (doc.RootElement.TryGetProperty("id", out var idEl))
+                        externalId = idEl.GetString();
+                }
+                catch { /* ignore */ }
+            }
             _logger.LogInformation("LinkedIn post published for post {PostId}", post.Id);
-            return true;
+            return PublishResult.Ok(externalId);
         }
         catch (HttpRequestException ex)
         {
             _logger.LogError(ex, "LinkedIn HTTP error publishing post {PostId}", post.Id);
-            return false;
+            return PublishResult.Failed;
         }
         catch (TaskCanceledException)
         {
@@ -102,7 +114,7 @@ public class LinkedInPublisher : IPostPublisher
         catch (Exception ex)
         {
             _logger.LogError(ex, "LinkedIn error publishing post {PostId}", post.Id);
-            return false;
+            return PublishResult.Failed;
         }
     }
 

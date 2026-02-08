@@ -39,13 +39,13 @@ public class UserService : IUserService
             user.Name = result.Name;
         }
         await _db.SaveChangesAsync(cancellationToken);
-        return new UserDto(user.Id, user.Email, user.Name, user.PreferredTheme, user.CreatedAt);
+        return new UserDto(user.Id, user.Email, user.Name, user.PreferredTheme, user.AvatarUrl, user.CreatedAt);
     }
 
     public async Task<UserDto?> GetByIdAsync(int userId, CancellationToken cancellationToken = default)
     {
         var user = await _db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == userId, cancellationToken);
-        return user == null ? null : new UserDto(user.Id, user.Email, user.Name, user.PreferredTheme, user.CreatedAt);
+        return user == null ? null : new UserDto(user.Id, user.Email, user.Name, user.PreferredTheme, user.AvatarUrl, user.CreatedAt);
     }
 
     public async Task<bool> UpdateProfileAsync(int userId, UserProfileUpdateRequest request, CancellationToken cancellationToken = default)
@@ -56,6 +56,9 @@ public class UserService : IUserService
             user.PreferredTheme = request.PreferredTheme;
         else if (request.PreferredTheme != null)
             user.PreferredTheme = null;
+        if (request.AvatarUrl != null && request.AvatarUrl.Length > 2_000_000)
+            throw new ArgumentException("Avatar URL must be 2,000,000 characters or less.", nameof(request));
+        user.AvatarUrl = request.AvatarUrl;
         await _db.SaveChangesAsync(cancellationToken);
         return true;
     }

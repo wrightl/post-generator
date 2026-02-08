@@ -22,20 +22,33 @@ const PLATFORM_KEYS: Record<string, string[]> = {
   Skool: ["ApiKey", "SessionId", "GroupId"],
 };
 
+const PREDEFINED_AVATARS = [
+  { id: "1", url: "https://api.dicebear.com/7.x/avataaars/svg?seed=1", label: "Avatar 1" },
+  { id: "2", url: "https://api.dicebear.com/7.x/avataaars/svg?seed=2", label: "Avatar 2" },
+  { id: "3", url: "https://api.dicebear.com/7.x/avataaars/svg?seed=3", label: "Avatar 3" },
+  { id: "4", url: "https://api.dicebear.com/7.x/avataaars/svg?seed=4", label: "Avatar 4" },
+  { id: "5", url: "https://api.dicebear.com/7.x/avataaars/svg?seed=5", label: "Avatar 5" },
+  { id: "6", url: "https://api.dicebear.com/7.x/avataaars/svg?seed=6", label: "Avatar 6" },
+  { id: "7", url: "https://api.dicebear.com/7.x/avataaars/svg?seed=7", label: "Avatar 7" },
+  { id: "8", url: "https://api.dicebear.com/7.x/avataaars/svg?seed=8", label: "Avatar 8" },
+];
+
 const inputClass =
   "mt-1 w-full rounded-lg border border-[var(--border)] bg-[var(--bg)] px-3 py-2 text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-[var(--focus-ring)]";
 const labelClass = "block text-sm font-medium text-[var(--text)]";
 
 export default function ProfilePage() {
-  const { appUser, idToken, loading: authLoading, signOut } = useAuth();
+  const { appUser, idToken, loading: authLoading, signOut, refreshAppUser } = useAuth();
   const { theme, setTheme } = useTheme();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [credentials, setCredentials] = useState<SocialCredential[]>([]);
   const [loading, setLoading] = useState(true);
   const [savingTheme, setSavingTheme] = useState(false);
+  const [savingAvatar, setSavingAvatar] = useState(false);
   const [savingPlatform, setSavingPlatform] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [credentialDraft, setCredentialDraft] = useState<Record<string, Record<string, string>>>({});
+  const [customAvatarUrl, setCustomAvatarUrl] = useState("");
 
   const load = useCallback(async () => {
     if (!idToken) return;
@@ -72,12 +85,44 @@ export default function ProfilePage() {
     setSavingTheme(true);
     setError(null);
     try {
-      await updateProfile(idToken, { preferredTheme: newTheme });
+      await updateProfile(idToken, { preferredTheme: newTheme, avatarUrl: profile?.avatarUrl ?? null });
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to save theme");
     } finally {
       setSavingTheme(false);
     }
+  };
+
+  const handleAvatarSelect = async (avatarUrl: string | null) => {
+    if (!idToken) return;
+    setSavingAvatar(true);
+    setError(null);
+    try {
+      await updateProfile(idToken, { preferredTheme: profile?.preferredTheme ?? null, avatarUrl });
+      setProfile((p) => (p ? { ...p, avatarUrl } : null));
+      setCustomAvatarUrl("");
+      await refreshAppUser();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to save avatar");
+    } finally {
+      setSavingAvatar(false);
+    }
+  };
+
+  const handleAvatarUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !file.type.startsWith("image/")) return;
+    const reader = new FileReader();
+    reader.onload = async () => {
+      const dataUrl = reader.result as string;
+      if (dataUrl.length > 2_000_000) {
+        setError("Image is too large; use a smaller file or a URL instead.");
+        return;
+      }
+      await handleAvatarSelect(dataUrl);
+    };
+    reader.readAsDataURL(file);
+    e.target.value = "";
   };
 
   const handleCredentialChange = (platform: string, key: string, value: string) => {
@@ -136,6 +181,83 @@ export default function ProfilePage() {
         <p className="mt-6 text-[var(--text-muted)]">Loading…</p>
       ) : (
         <div className="mt-6 space-y-8">
+          <section className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-5">
+            <h2 className="text-lg font-semibold text-[var(--text)]">Profile avatar</h2>
+            <p className="mt-1 text-sm text-[var(--text-muted)]">
+              Choose an avatar from the list or upload your own. It appears next to your name in the menu.
+            </p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {PREDEFINED_AVATARS.map((av) => (
+                <button
+                  key={av.id}
+                  type="button"
+                  onClick={() => handleAvatarSelect(av.url)}
+                  disabled={savingAvatar}
+                  className={`relative h-12 w-12 shrink-0 overflow-hidden rounded-full border-2 transition ${
+                    profile?.avatarUrl === av.url
+                      ? "border-[var(--primary)] ring-2 ring-[var(--primary)]/30"
+                      : "border-[var(--border)] hover:border-[var(--primary)]/50"
+                  }`}
+                  title={av.label}
+                >
+                  <img src={av.url} alt="" className="h-full w-full object-cover" />
+                </button>
+              ))}
+            </div>
+            <div className="mt-3 flex flex-wrap items-end gap-3">
+              <div className="min-w-0 flex-1">
+                <label className={labelClass}>Custom image URL</label>
+                <input
+                  type="url"
+                  placeholder="https://…"
+                  value={customAvatarUrl}
+                  onChange={(e) => setCustomAvatarUrl(e.target.value)}
+                  className={inputClass}
+                />
+              </div>
+              <button
+                type="button"
+                onClick={() => handleAvatarSelect(customAvatarUrl.trim() || null)}
+                disabled={savingAvatar || !customAvatarUrl.trim()}
+                className="rounded-lg bg-[var(--primary)] px-3 py-2 text-sm font-medium text-white hover:bg-[var(--primary-hover)] disabled:opacity-50"
+              >
+                Use URL
+              </button>
+            </div>
+            <div className="mt-3 flex items-center gap-2">
+              <label className="cursor-pointer rounded-lg border border-[var(--border)] bg-[var(--bg)] px-3 py-2 text-sm font-medium text-[var(--text)] hover:bg-[var(--border)]/30">
+                Upload image
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="sr-only"
+                  onChange={handleAvatarUpload}
+                  disabled={savingAvatar}
+                />
+              </label>
+              {profile?.avatarUrl && (
+                <button
+                  type="button"
+                  onClick={() => handleAvatarSelect(null)}
+                  disabled={savingAvatar}
+                  className="text-sm text-[var(--text-muted)] underline hover:text-[var(--text)]"
+                >
+                  Remove avatar
+                </button>
+              )}
+            </div>
+            {profile?.avatarUrl && (
+              <div className="mt-2 flex items-center gap-2">
+                <span className="text-sm text-[var(--text-muted)]">Current avatar:</span>
+                <img
+                  src={profile.avatarUrl}
+                  alt=""
+                  className="h-8 w-8 rounded-full object-cover ring-1 ring-[var(--border)]"
+                />
+              </div>
+            )}
+          </section>
+
           <section className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-5">
             <h2 className="text-lg font-semibold text-[var(--text)]">Preferred theme</h2>
             <p className="mt-1 text-sm text-[var(--text-muted)]">Choose light or dark mode.</p>

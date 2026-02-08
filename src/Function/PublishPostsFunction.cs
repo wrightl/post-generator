@@ -26,6 +26,7 @@ public class PublishPostsFunction
         catch (Exception ex)
         {
             _logger.LogError(ex, "Publish run failed");
+            throw;
         }
     }
 }

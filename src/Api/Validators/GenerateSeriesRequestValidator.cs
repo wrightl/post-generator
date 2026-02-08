@@ -9,7 +9,7 @@ public class GenerateSeriesRequestValidator : AbstractValidator<GenerateSeriesRe
     public GenerateSeriesRequestValidator()
     {
         RuleFor(x => x.TopicDetail).NotEmpty().MaximumLength(10_000);
-        RuleFor(x => x.NumPosts).InclusiveBetween(1, 20);
+        RuleFor(x => x.NumPosts).InclusiveBetween(1, 90);
         RuleFor(x => x.Platform)
             .NotEmpty()
             .Must(v => Enum.TryParse<PostPlatform>(v, true, out _))

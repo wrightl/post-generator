@@ -18,24 +18,57 @@ public class PostService : IPostService
         _imageService = imageService;
     }
 
-    public async Task<IReadOnlyList<PostDto>> ListAsync(int userId, PostPlatform? platform, PostStatus? status, DateTime? from, DateTime? to, CancellationToken cancellationToken = default)
+    public async Task<(IReadOnlyList<PostDto> Items, int TotalCount)> ListAsync(int userId, IReadOnlyList<string>? platforms, IReadOnlyList<string>? statuses, DateTime? from, DateTime? to, int? skip = null, int? take = null, CancellationToken cancellationToken = default)
     {
         var q = _db.Posts.AsNoTracking().Where(p => p.UserId == userId);
-        if (platform.HasValue) q = q.Where(p => p.Platform == platform.Value);
-        if (status.HasValue) q = q.Where(p => p.Status == status.Value);
+        if (platforms is { Count: > 0 })
+        {
+            var platformSet = platforms
+                .Select(s => Enum.TryParse<PostPlatform>(s, true, out var pl) ? pl : (PostPlatform?)null)
+                .Where(x => x.HasValue)
+                .Select(x => x!.Value)
+                .ToHashSet();
+            if (platformSet.Count > 0)
+                q = q.Where(p => platformSet.Contains(p.Platform));
+        }
+        if (statuses is { Count: > 0 })
+        {
+            var statusSet = statuses
+                .Select(s => Enum.TryParse<PostStatus>(s, true, out var st) ? st : (PostStatus?)null)
+                .Where(x => x.HasValue)
+                .Select(x => x!.Value)
+                .ToHashSet();
+            if (statusSet.Count > 0)
+                q = q.Where(p => statusSet.Contains(p.Status));
+        }
         if (from.HasValue) q = q.Where(p => p.ScheduledAt >= from || (p.ScheduledAt == null && p.CreatedAt >= from));
         if (to.HasValue) q = q.Where(p => p.ScheduledAt <= to);
-        return await q
-            .OrderBy(p => p.ScheduledAt ?? DateTime.MaxValue)
-            .ThenBy(p => p.CreatedAt)
-            .Select(p => new PostDto(p.Id, p.UserId, p.TopicSummary, p.Platform.ToString(), p.Status.ToString(), p.ScheduledAt, p.PublishedAt, p.Content, p.Script, p.ImageUrl, p.MetadataJson, p.Tone, p.Length, p.CreatedAt, p.UpdatedAt))
-            .ToListAsync(cancellationToken);
+
+        var ordered = q.OrderBy(p => p.ScheduledAt ?? DateTime.MaxValue).ThenBy(p => p.CreatedAt);
+        var projected = ordered.Select(p => new PostDto(p.Id, p.UserId, p.TopicSummary, p.Platform.ToString(), p.Status.ToString(), p.ScheduledAt, p.PublishedAt, p.ExternalPostId, p.ViewsCount, p.LikesCount, p.CommentsCount, p.LastEngagementFetchedAt, p.Content, p.Script, p.ImageUrl, p.MetadataJson, p.Tone, p.Length, p.CreatedAt, p.UpdatedAt));
+
+        int totalCount;
+        List<PostDto> items;
+        if (skip.HasValue || take.HasValue)
+        {
+            totalCount = await ordered.CountAsync(cancellationToken);
+            var paged = projected;
+            if (skip.HasValue) paged = paged.Skip(skip.Value);
+            if (take.HasValue) paged = paged.Take(take.Value);
+            items = await paged.ToListAsync(cancellationToken);
+        }
+        else
+        {
+            items = await projected.ToListAsync(cancellationToken);
+            totalCount = items.Count;
+        }
+        return (items, totalCount);
     }
 
     public async Task<PostDto?> GetByIdAsync(int userId, int postId, CancellationToken cancellationToken = default)
     {
         var post = await _db.Posts.AsNoTracking().FirstOrDefaultAsync(p => p.Id == postId && p.UserId == userId, cancellationToken);
-        return post == null ? null : ToDto(post);
+        return post == null ? null : PostMappings.ToDto(post);
     }
 
     public async Task<PostDto> CreateAsync(int userId, CreatePostRequest request, CancellationToken cancellationToken = default)
@@ -61,7 +94,7 @@ public class PostService : IPostService
         };
         _db.Posts.Add(post);
         await _db.SaveChangesAsync(cancellationToken);
-        return ToDto(post);
+        return PostMappings.ToDto(post);
     }
 
     public async Task<PostDto?> UpdateAsync(int userId, int postId, UpdatePostRequest request, CancellationToken cancellationToken = default)
@@ -80,7 +113,7 @@ public class PostService : IPostService
         if (request.Status != null && Enum.TryParse<PostStatus>(request.Status, true, out var st)) post.Status = st;
         post.UpdatedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync(cancellationToken);
-        return ToDto(post);
+        return PostMappings.ToDto(post);
     }
 
     public async Task<bool> DeleteAsync(int userId, int postId, CancellationToken cancellationToken = default)
@@ -106,37 +139,51 @@ public class PostService : IPostService
         post.ImageUrl = imageUrl;
         post.UpdatedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync(cancellationToken);
-        return ToDto(post);
+        return PostMappings.ToDto(post);
+    }
+
+    public async Task<PostDto?> PublishNowAsync(int userId, int postId, CancellationToken cancellationToken = default)
+    {
+        var post = await _db.Posts.FirstOrDefaultAsync(p => p.Id == postId && p.UserId == userId, cancellationToken);
+        if (post == null || post.Status != PostStatus.Draft) return null;
+
+        post.Status = PostStatus.Published;
+        post.PublishedAt = DateTime.UtcNow;
+        post.UpdatedAt = DateTime.UtcNow;
+        await _db.SaveChangesAsync(cancellationToken);
+        return PostMappings.ToDto(post);
     }
 
     public async Task<DashboardStatsDto> GetDashboardStatsAsync(int userId, CancellationToken cancellationToken = default)
     {
         var now = DateTime.UtcNow;
-        var posts = await _db.Posts.AsNoTracking().Where(p => p.UserId == userId).ToListAsync(cancellationToken);
+        var baseQ = _db.Posts.AsNoTracking().Where(p => p.UserId == userId);
 
-        var total = posts.Count;
-        var draftCount = posts.Count(p => p.Status == PostStatus.Draft);
-        var scheduledCount = posts.Count(p => p.Status == PostStatus.Scheduled);
-        var publishedCount = posts.Count(p => p.Status == PostStatus.Published);
-        var failedCount = posts.Count(p => p.Status == PostStatus.Failed);
+        var total = await baseQ.CountAsync(cancellationToken);
+        var draftCount = await baseQ.CountAsync(p => p.Status == PostStatus.Draft, cancellationToken);
+        var scheduledCount = await baseQ.CountAsync(p => p.Status == PostStatus.Scheduled, cancellationToken);
+        var publishedCount = await baseQ.CountAsync(p => p.Status == PostStatus.Published, cancellationToken);
+        var failedCount = await baseQ.CountAsync(p => p.Status == PostStatus.Failed, cancellationToken);
 
-        var byPlatform = posts
-            .GroupBy(p => p.Platform.ToString())
-            .Select(g => new PostsByPlatformDto(g.Key, g.Count()))
+        var byPlatformRows = await baseQ
+            .GroupBy(p => p.Platform)
+            .Select(g => new { Platform = g.Key, Count = g.Count() })
             .OrderByDescending(x => x.Count)
-            .ToList();
+            .ToListAsync(cancellationToken);
+        var byPlatform = byPlatformRows.Select(x => new PostsByPlatformDto(x.Platform.ToString(), x.Count)).ToList();
 
-        var upcomingPosts = posts
-            .Where(p => p.Status == PostStatus.Scheduled && p.ScheduledAt.HasValue && p.ScheduledAt.Value >= now)
+        var upcomingPosts = await baseQ
+            .Where(p => p.Status == PostStatus.Scheduled && p.ScheduledAt != null && p.ScheduledAt >= now)
             .OrderBy(p => p.ScheduledAt)
             .Take(UpcomingTake)
             .Select(p => new UpcomingPostDto(p.Id, p.Platform.ToString(), p.ScheduledAt!.Value, p.TopicSummary))
-            .ToList();
+            .ToListAsync(cancellationToken);
 
-        var mostRecentPublished = posts
-            .Where(p => p.Status == PostStatus.Published && p.PublishedAt.HasValue)
+        var mostRecentPublished = await baseQ
+            .Where(p => p.Status == PostStatus.Published && p.PublishedAt != null)
             .OrderByDescending(p => p.PublishedAt)
-            .FirstOrDefault();
+            .Select(p => new PostDto(p.Id, p.UserId, p.TopicSummary, p.Platform.ToString(), p.Status.ToString(), p.ScheduledAt, p.PublishedAt, p.ExternalPostId, p.ViewsCount, p.LikesCount, p.CommentsCount, p.LastEngagementFetchedAt, p.Content, p.Script, p.ImageUrl, p.MetadataJson, p.Tone, p.Length, p.CreatedAt, p.UpdatedAt))
+            .FirstOrDefaultAsync(cancellationToken);
 
         return new DashboardStatsDto(
             total,
@@ -146,8 +193,6 @@ public class PostService : IPostService
             failedCount,
             byPlatform,
             upcomingPosts,
-            mostRecentPublished == null ? null : ToDto(mostRecentPublished));
+            mostRecentPublished);
     }
-
-    private static PostDto ToDto(Post p) => new(p.Id, p.UserId, p.TopicSummary, p.Platform.ToString(), p.Status.ToString(), p.ScheduledAt, p.PublishedAt, p.Content, p.Script, p.ImageUrl, p.MetadataJson, p.Tone, p.Length, p.CreatedAt, p.UpdatedAt);
 }

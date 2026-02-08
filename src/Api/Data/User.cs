@@ -8,5 +8,7 @@ public class User
     public string? Name { get; set; }
     /// <summary>Preferred theme: "light" or "dark".</summary>
     public string? PreferredTheme { get; set; }
+    /// <summary>Avatar image URL or data URL.</summary>
+    public string? AvatarUrl { get; set; }
     public DateTime CreatedAt { get; set; }
 }

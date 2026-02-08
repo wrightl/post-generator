@@ -8,7 +8,7 @@ public class UpdatePostRequestValidator : AbstractValidator<UpdatePostRequest>
 {
     public UpdatePostRequestValidator()
     {
-        RuleFor(x => x.TopicSummary).MaximumLength(2000).When(x => x.TopicSummary != null);
+        RuleFor(x => x.TopicSummary).MaximumLength(500).When(x => x.TopicSummary != null);
         RuleFor(x => x.Content).MaximumLength(50_000).When(x => x.Content != null);
         RuleFor(x => x.Script).MaximumLength(20_000).When(x => x.Script != null);
         RuleFor(x => x.Tone).MaximumLength(100).When(x => x.Tone != null);

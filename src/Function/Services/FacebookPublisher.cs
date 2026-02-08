@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using PostGenerator.Core;
@@ -21,42 +22,45 @@ public class FacebookPublisher : IPostPublisher
         _logger = logger;
     }
 
-    public async Task<bool> PublishAsync(PostToPublish post, CancellationToken ct = default)
+    public async Task<PublishResult> PublishAsync(PostToPublish post, IReadOnlyDictionary<string, string>? credentials, CancellationToken ct = default)
     {
-        var pageId = _config["Facebook:PageId"];
-        var pageAccessToken = _config["Facebook:PageAccessToken"];
+        var pageId = (credentials != null && credentials.TryGetValue("PageId", out var pid) ? pid : null) ?? _config["Facebook:PageId"];
+        var pageAccessToken = (credentials != null && credentials.TryGetValue("PageAccessToken", out var pat) ? pat : null) ?? _config["Facebook:PageAccessToken"];
 
         if (string.IsNullOrEmpty(pageId) || string.IsNullOrEmpty(pageAccessToken))
         {
             _logger.LogWarning("Facebook publisher skipped: Facebook:PageId or Facebook:PageAccessToken not configured");
-            return false;
+            return PublishResult.Failed;
         }
 
         try
         {
             var client = _httpClientFactory.CreateClient();
             var baseUrl = $"https://graph.facebook.com/v21.0/{pageId}";
+            string? externalId = null;
 
             if (!string.IsNullOrEmpty(post.ImageUrl))
             {
                 var photosUrl = $"{baseUrl}/photos?url={Uri.EscapeDataString(post.ImageUrl)}&message={Uri.EscapeDataString(post.Content)}&access_token={Uri.EscapeDataString(pageAccessToken)}";
                 using var resp = await client.PostAsync(photosUrl, null, ct);
                 resp.EnsureSuccessStatusCode();
+                externalId = await ParseIdFromResponseAsync(resp, ct);
             }
             else
             {
                 var feedUrl = $"{baseUrl}/feed?message={Uri.EscapeDataString(post.Content)}&access_token={Uri.EscapeDataString(pageAccessToken)}";
                 using var resp = await client.PostAsync(feedUrl, null, ct);
                 resp.EnsureSuccessStatusCode();
+                externalId = await ParseIdFromResponseAsync(resp, ct);
             }
 
             _logger.LogInformation("Facebook post published for post {PostId}", post.Id);
-            return true;
+            return PublishResult.Ok(externalId);
         }
         catch (HttpRequestException ex)
         {
             _logger.LogError(ex, "Facebook HTTP error publishing post {PostId}", post.Id);
-            return false;
+            return PublishResult.Failed;
         }
         catch (TaskCanceledException)
         {
@@ -65,7 +69,21 @@ public class FacebookPublisher : IPostPublisher
         catch (Exception ex)
         {
             _logger.LogError(ex, "Facebook error publishing post {PostId}", post.Id);
-            return false;
+            return PublishResult.Failed;
         }
+    }
+
+    private static async Task<string?> ParseIdFromResponseAsync(HttpResponseMessage resp, CancellationToken ct)
+    {
+        var body = await resp.Content.ReadAsStringAsync(ct);
+        if (string.IsNullOrEmpty(body)) return null;
+        try
+        {
+            var doc = JsonDocument.Parse(body);
+            if (doc.RootElement.TryGetProperty("id", out var idEl))
+                return idEl.GetString();
+        }
+        catch { /* ignore */ }
+        return null;
     }
 }

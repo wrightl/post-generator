@@ -12,6 +12,12 @@ public class Post
     public PostStatus Status { get; set; }
     public DateTime? ScheduledAt { get; set; }
     public DateTime? PublishedAt { get; set; }
+    /// <summary>Platform's identifier for this post (e.g. LinkedIn URN, Facebook post id, Bluesky URI).</summary>
+    public string? ExternalPostId { get; set; }
+    public int? ViewsCount { get; set; }
+    public int? LikesCount { get; set; }
+    public int? CommentsCount { get; set; }
+    public DateTime? LastEngagementFetchedAt { get; set; }
     public string Content { get; set; } = null!;
     public string? Script { get; set; }
     public string? ImageUrl { get; set; }

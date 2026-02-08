@@ -27,17 +27,21 @@ public class BlueskyPublisher : IPostPublisher
         _logger = logger;
     }
 
-    public async Task<bool> PublishAsync(PostToPublish post, CancellationToken ct = default)
+    public async Task<PublishResult> PublishAsync(PostToPublish post, IReadOnlyDictionary<string, string>? credentials, CancellationToken ct = default)
     {
-        var session = await _sessionService.GetSessionAsync(ct);
+        var pdsUrl = (credentials != null && credentials.TryGetValue("PdsUrl", out var pds) ? pds : null) ?? _config["Bluesky:PdsUrl"]?.TrimEnd('/') ?? "https://bsky.social";
+        (string AccessJwt, string Did)? session = null;
+        if (credentials != null && credentials.TryGetValue("Handle", out var handle) && credentials.TryGetValue("AppPassword", out var appPassword) && !string.IsNullOrEmpty(handle) && !string.IsNullOrEmpty(appPassword))
+            session = await CreateSessionAsync(pdsUrl, handle, appPassword, ct);
+        if (session == null)
+            session = await _sessionService.GetSessionAsync(ct);
         if (session == null)
         {
-            _logger.LogWarning("Bluesky publisher skipped: no session (check Bluesky:Handle and Bluesky:AppPassword)");
-            return false;
+            _logger.LogWarning("Bluesky publisher skipped: no session (check Bluesky:Handle and Bluesky:AppPassword or per-user credentials)");
+            return PublishResult.Failed;
         }
 
         var (accessJwt, did) = session.Value;
-        var pdsUrl = _config["Bluesky:PdsUrl"]?.TrimEnd('/') ?? "https://bsky.social";
 
         try
         {
@@ -55,13 +59,25 @@ public class BlueskyPublisher : IPostPublisher
             req.Content = JsonContent.Create(recordBody);
             using var recordResp = await client.SendAsync(req, ct);
             recordResp.EnsureSuccessStatusCode();
+            string? externalId = null;
+            var respBody = await recordResp.Content.ReadAsStringAsync(ct);
+            if (!string.IsNullOrEmpty(respBody))
+            {
+                try
+                {
+                    var doc = JsonDocument.Parse(respBody);
+                    if (doc.RootElement.TryGetProperty("uri", out var uriEl))
+                        externalId = uriEl.GetString();
+                }
+                catch { /* ignore */ }
+            }
             _logger.LogInformation("Bluesky post published for post {PostId}", post.Id);
-            return true;
+            return PublishResult.Ok(externalId);
         }
         catch (HttpRequestException ex)
         {
             _logger.LogError(ex, "Bluesky HTTP error publishing post {PostId}", post.Id);
-            return false;
+            return PublishResult.Failed;
         }
         catch (TaskCanceledException)
         {
@@ -70,7 +86,30 @@ public class BlueskyPublisher : IPostPublisher
         catch (Exception ex)
         {
             _logger.LogError(ex, "Bluesky error publishing post {PostId}", post.Id);
-            return false;
+            return PublishResult.Failed;
+        }
+    }
+
+    private async Task<(string AccessJwt, string Did)?> CreateSessionAsync(string pdsUrl, string handle, string appPassword, CancellationToken ct)
+    {
+        try
+        {
+            var client = _httpClientFactory.CreateClient();
+            var sessionUrl = $"{pdsUrl.TrimEnd('/')}/xrpc/com.atproto.server.createSession";
+            var sessionBody = new { identifier = handle, password = appPassword };
+            using var sessionResp = await client.PostAsJsonAsync(sessionUrl, sessionBody, ct);
+            sessionResp.EnsureSuccessStatusCode();
+            var sessionJson = await sessionResp.Content.ReadFromJsonAsync<JsonElement>(cancellationToken: ct);
+            var accessJwt = sessionJson.GetProperty("accessJwt").GetString();
+            var did = sessionJson.GetProperty("did").GetString();
+            if (string.IsNullOrEmpty(accessJwt) || string.IsNullOrEmpty(did))
+                return null;
+            return (accessJwt, did);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Bluesky createSession failed for per-user credentials");
+            return null;
         }
     }
 }

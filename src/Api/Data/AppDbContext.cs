@@ -24,6 +24,7 @@ public class AppDbContext : DbContext
             e.Property(x => x.Email).HasMaxLength(256).IsRequired();
             e.Property(x => x.Name).HasMaxLength(256);
             e.Property(x => x.PreferredTheme).HasMaxLength(10);
+            e.Property(x => x.AvatarUrl).HasColumnType("nvarchar(max)");
             e.HasIndex(x => x.ExternalId).IsUnique();
         });
 
@@ -40,6 +41,7 @@ public class AppDbContext : DbContext
         {
             e.HasKey(x => x.Id);
             e.Property(x => x.TopicSummary).HasMaxLength(500);
+            e.Property(x => x.ExternalPostId).HasMaxLength(512);
             e.Property(x => x.Content).HasMaxLength(10000);
             e.Property(x => x.Script).HasMaxLength(10000);
             e.Property(x => x.ImageUrl).HasMaxLength(2048);

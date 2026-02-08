@@ -25,20 +25,20 @@ public class TikTokPublisher : IPostPublisher
         _logger = logger;
     }
 
-    public async Task<bool> PublishAsync(PostToPublish post, CancellationToken ct = default)
+    public async Task<PublishResult> PublishAsync(PostToPublish post, IReadOnlyDictionary<string, string>? credentials, CancellationToken ct = default)
     {
-        var accessToken = _config["TikTok:AccessToken"];
+        var accessToken = (credentials != null && credentials.TryGetValue("AccessToken", out var tat) ? tat : null) ?? _config["TikTok:AccessToken"];
         if (string.IsNullOrEmpty(accessToken))
         {
             _logger.LogWarning("TikTok publisher skipped: TikTok:AccessToken not configured");
-            return false;
+            return PublishResult.Failed;
         }
 
         var videoUrl = GetVideoUrl(post);
         if (string.IsNullOrEmpty(videoUrl))
         {
             _logger.LogWarning("TikTok requires a video URL (set MetadataJson.video_url or ImageUrl for video). Post {PostId} skipped.", post.Id);
-            return false;
+            return PublishResult.Failed;
         }
 
         try
@@ -56,15 +56,16 @@ public class TikTokPublisher : IPostPublisher
             {
                 var msg = err.TryGetProperty("message", out var m) ? m.GetString() : errorCode;
                 _logger.LogError("TikTok init failed for post {PostId}: {Message}", post.Id, msg);
-                return false;
+                return PublishResult.Failed;
             }
             var publishId = initJson.GetProperty("data").GetProperty("publish_id").GetString();
             if (string.IsNullOrEmpty(publishId))
             {
                 _logger.LogError("TikTok init response missing publish_id for post {PostId}", post.Id);
-                return false;
+                return PublishResult.Failed;
             }
 
+            string? externalId = null;
             for (var i = 0; i < 60; i++)
             {
                 await Task.Delay(2000, ct);
@@ -73,16 +74,20 @@ public class TikTokPublisher : IPostPublisher
                 statusResp.EnsureSuccessStatusCode();
                 var statusJson = await statusResp.Content.ReadFromJsonAsync<JsonElement>(cancellationToken: ct);
                 var status = statusJson.TryGetProperty("data", out var data) ? data.GetProperty("status").GetString() : null;
+                if (statusJson.TryGetProperty("data", out var dataNode) && dataNode.TryGetProperty("video_id", out var videoIdEl))
+                    externalId = videoIdEl.GetString() ?? publishId;
+                else
+                    externalId = publishId;
                 switch (status)
                 {
                     case "SEND_TO_USER_INBOX":
                     case "PUBLISH_COMPLETE":
                         _logger.LogInformation("TikTok post published for post {PostId}", post.Id);
-                        return true;
+                        return PublishResult.Ok(externalId);
                     case "FAILED":
                         var reason = data.TryGetProperty("fail_reason", out var fr) ? fr.GetString() : "Unknown";
                         _logger.LogError("TikTok publish failed for post {PostId}: {Reason}", post.Id, reason);
-                        return false;
+                        return PublishResult.Failed;
                     case "PROCESSING_DOWNLOAD":
                     case "PROCESSING_UPLOAD":
                         continue;
@@ -93,12 +98,12 @@ public class TikTokPublisher : IPostPublisher
             }
 
             _logger.LogError("TikTok publish timed out for post {PostId}", post.Id);
-            return false;
+            return PublishResult.Failed;
         }
         catch (HttpRequestException ex)
         {
             _logger.LogError(ex, "TikTok HTTP error publishing post {PostId}", post.Id);
-            return false;
+            return PublishResult.Failed;
         }
         catch (TaskCanceledException)
         {
@@ -107,7 +112,7 @@ public class TikTokPublisher : IPostPublisher
         catch (Exception ex)
         {
             _logger.LogError(ex, "TikTok error publishing post {PostId}", post.Id);
-            return false;
+            return PublishResult.Failed;
         }
     }
 

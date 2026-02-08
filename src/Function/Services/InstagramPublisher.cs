@@ -24,15 +24,15 @@ public class InstagramPublisher : IPostPublisher
         _logger = logger;
     }
 
-    public async Task<bool> PublishAsync(PostToPublish post, CancellationToken ct = default)
+    public async Task<PublishResult> PublishAsync(PostToPublish post, IReadOnlyDictionary<string, string>? credentials, CancellationToken ct = default)
     {
-        var userId = _config["Instagram:UserId"];
-        var accessToken = _config["Instagram:AccessToken"];
+        var userId = (credentials != null && credentials.TryGetValue("UserId", out var uid) ? uid : null) ?? _config["Instagram:UserId"];
+        var accessToken = (credentials != null && credentials.TryGetValue("AccessToken", out var iat) ? iat : null) ?? _config["Instagram:AccessToken"];
 
         if (string.IsNullOrEmpty(userId) || string.IsNullOrEmpty(accessToken))
         {
             _logger.LogWarning("Instagram publisher skipped: Instagram:UserId or Instagram:AccessToken not configured");
-            return false;
+            return PublishResult.Failed;
         }
 
         try
@@ -62,20 +62,24 @@ public class InstagramPublisher : IPostPublisher
             if (string.IsNullOrEmpty(creationId))
             {
                 _logger.LogError("Instagram container response missing id");
-                return false;
+                return PublishResult.Failed;
             }
 
             var publishUrl = $"{baseUrl}/{userId}/media_publish?creation_id={Uri.EscapeDataString(creationId!)}";
             using var publishResp = await client.PostAsync(publishUrl, null, ct);
             publishResp.EnsureSuccessStatusCode();
+            string? externalId = null;
+            var publishJson = await publishResp.Content.ReadFromJsonAsync<JsonElement>(cancellationToken: ct);
+            if (publishJson.TryGetProperty("id", out var idEl))
+                externalId = idEl.GetString();
 
             _logger.LogInformation("Instagram post published for post {PostId}", post.Id);
-            return true;
+            return PublishResult.Ok(externalId);
         }
         catch (HttpRequestException ex)
         {
             _logger.LogError(ex, "Instagram HTTP error publishing post {PostId}", post.Id);
-            return false;
+            return PublishResult.Failed;
         }
         catch (TaskCanceledException)
         {
@@ -84,7 +88,7 @@ public class InstagramPublisher : IPostPublisher
         catch (Exception ex)
         {
             _logger.LogError(ex, "Instagram error publishing post {PostId}", post.Id);
-            return false;
+            return PublishResult.Failed;
         }
     }
 }

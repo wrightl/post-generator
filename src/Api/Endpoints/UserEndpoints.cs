@@ -29,9 +29,16 @@ public static class UserEndpoints
         UserProfileUpdateRequest request,
         CancellationToken ct)
     {
-        var ok = await userService.UpdateProfileAsync(currentUser.UserId!.Value, request, ct);
-        if (!ok) return Results.NotFound();
-        return Results.NoContent();
+        try
+        {
+            var ok = await userService.UpdateProfileAsync(currentUser.UserId!.Value, request, ct);
+            if (!ok) return Results.NotFound();
+            return Results.NoContent();
+        }
+        catch (ArgumentException ex) when (ex.ParamName == "request")
+        {
+            return Results.BadRequest(ex.Message);
+        }
     }
 
     private static async Task<IResult> GetCredentials(ICurrentUserService currentUser, IUserService userService, CancellationToken ct)

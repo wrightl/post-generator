@@ -10,11 +10,14 @@ import {
   signOut as firebaseSignOut,
 } from "firebase/auth";
 import { getFirebaseAuth } from "@/lib/firebase";
+import { API_URL, getProfile } from "@/lib/api";
 
 export type AppUser = {
   id: number;
   email: string;
   name: string | null;
+  preferredTheme: string | null;
+  avatarUrl: string | null;
   createdAt: string;
 };
 
@@ -34,11 +37,10 @@ const AuthContext = createContext<AuthState & {
   createAccount: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
   refreshIdToken: () => Promise<string | null>;
+  refreshAppUser: () => Promise<void>;
   authMode: AuthMode;
   setAuthMode: (m: AuthMode) => void;
 } | null>(null);
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:5000";
 
 async function syncUser(idToken: string): Promise<AppUser | null> {
   const res = await fetch(`${API_URL}/api/auth/sync`, {
@@ -64,6 +66,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const token = await user.getIdToken(true);
     setIdToken(token);
     return token;
+  }, []);
+
+  const refreshAppUser = useCallback(async () => {
+    const auth = getFirebaseAuth();
+    const user = auth?.currentUser;
+    if (!user) return;
+    const token = await user.getIdToken();
+    if (!token) return;
+    try {
+      const profile = await getProfile(token);
+      setAppUser({
+        id: profile.id,
+        email: profile.email,
+        name: profile.name,
+        preferredTheme: profile.preferredTheme,
+        avatarUrl: profile.avatarUrl,
+        createdAt: profile.createdAt,
+      });
+    } catch {
+      // ignore
+    }
   }, []);
 
   const signInWithGoogle = useCallback(async () => {
@@ -170,6 +193,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         createAccount,
         signOut,
         refreshIdToken,
+        refreshAppUser,
         authMode,
         setAuthMode,
       }}
