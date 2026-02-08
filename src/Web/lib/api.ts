@@ -1,4 +1,5 @@
-export const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "https://localhost:7049";
+export const API_URL =
+    process.env.NEXT_PUBLIC_API_URL ?? 'https://localhost:7049';
 
 // --- User profile & credentials ---
 export type UserProfile = {
@@ -240,8 +241,18 @@ export async function generatePostImage(
         },
         body: JSON.stringify({ prompt: prompt ?? null }),
     });
-    if (!res.ok) throw new Error('Failed to generate image');
-    return res.json();
+    const text = await res.text();
+    if (!res.ok) {
+        let message = 'Failed to generate image';
+        try {
+            const body = JSON.parse(text) as { message?: string };
+            if (body?.message) message = body.message;
+        } catch {
+            if (text) message = text;
+        }
+        throw new Error(message);
+    }
+    return JSON.parse(text) as Post;
 }
 
 export async function publishPostNow(

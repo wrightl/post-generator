@@ -26,8 +26,10 @@ Then set the connection string for the API (see below). For local dev only, if `
 ```bash
 cd src/Api
 dotnet ef database update   # apply migrations (from Api project)
-dotnet run
+dotnet watch run
 ```
+
+`dotnet watch run` watches for file changes and hot-reloads (or restarts) the API when you edit code.
 
 Health: `GET https://localhost:7xxx/health`
 

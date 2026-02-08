@@ -1,3 +1,4 @@
+using System.Net.Http;
 using PostGenerator.Api.EndpointFilters;
 using PostGenerator.Api.Models;
 using PostGenerator.Api.Services;
@@ -102,9 +103,16 @@ public static class PostEndpoints
         IPostService postService,
         CancellationToken ct)
     {
-        var post = await postService.GenerateImageAsync(currentUser.UserId!.Value, id, request?.Prompt, ct);
-        if (post == null) return Results.BadRequest("Post not found or image generation failed.");
-        return Results.Ok(post);
+        try
+        {
+            var post = await postService.GenerateImageAsync(currentUser.UserId!.Value, id, request?.Prompt, ct);
+            if (post == null) return Results.BadRequest(new { message = "Post not found or image generation failed." });
+            return Results.Ok(post);
+        }
+        catch (HttpRequestException ex)
+        {
+            return Results.BadRequest(new { message = ex.Message });
+        }
     }
 
     private static async Task<IResult> PublishNow(

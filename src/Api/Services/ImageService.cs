@@ -48,7 +48,21 @@ public class ImageService : IImageService
         var response = await client.PostAsJsonAsync(url, body, cancellationToken);
         var responseBody = await response.Content.ReadAsStringAsync(cancellationToken);
         if (!response.IsSuccessStatusCode)
-            throw new HttpRequestException($"Azure OpenAI images returned {(int)response.StatusCode} {response.ReasonPhrase}. {responseBody}");
+        {
+            var message = $"Azure OpenAI images returned {(int)response.StatusCode} {response.ReasonPhrase}. {responseBody}";
+            if (response.StatusCode == System.Net.HttpStatusCode.NotFound && responseBody.Contains("DeploymentNotFound", StringComparison.OrdinalIgnoreCase)
+                && string.IsNullOrEmpty(_openAIOptions.ImageEndpoint))
+            {
+                message += " When using separate Azure OpenAI accounts for chat (e.g. West Europe) and images (e.g. Sweden Central), set AzureOpenAI:ImageEndpoint and AzureOpenAI:ImageApiKey to the image account endpoint and key. See infra/deploy-local.sh output for dotnet user-secrets commands.";
+            }
+            else if (response.StatusCode == System.Net.HttpStatusCode.BadRequest
+                && (responseBody.Contains("content_policy_violation", StringComparison.OrdinalIgnoreCase)
+                    || responseBody.Contains("ResponsibleAIPolicyViolation", StringComparison.OrdinalIgnoreCase)))
+            {
+                message = $"Image generation was blocked by content safety. The prompt may contain text that isn't allowed. Try rephrasing or shortening the prompt: \nprompt: {prompt}";
+            }
+            throw new HttpRequestException(message);
+        }
         var json = JsonSerializer.Deserialize<JsonElement>(responseBody)!;
         var data = json.GetProperty("data");
         if (data.GetArrayLength() == 0) return null;
