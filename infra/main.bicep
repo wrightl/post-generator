@@ -19,7 +19,7 @@ param deployImageModel bool = true
 param openAIChatLocation string = 'westeurope'
 
 @description('When localDevOnly, region for image (DALL-E). Ignored when localDevOnly is false.')
-param openAIImageLocation string = 'centralsweden'
+param openAIImageLocation string = 'swedencentral'
 
 @description('Initial API container image (replaced by CD)')
 param apiImage string = 'mcr.microsoft.com/azuredocs/containerapps-helloworld:latest'

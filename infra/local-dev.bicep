@@ -34,7 +34,7 @@ resource openaiChatDeployment 'Microsoft.CognitiveServices/accounts/deployments@
 resource openaiImageDeployment 'Microsoft.CognitiveServices/accounts/deployments@2023-05-01' = {
   parent: openai
   name: 'dall-e-3'
-  location: 'centralsweden'
+  location: 'swedencentral'
   sku: { name: 'Standard' }
   properties: {
     model: { name: 'dall-e-3', format: 'OpenAI' }
