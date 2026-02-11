@@ -275,7 +275,7 @@ resource apiApp 'Microsoft.App/containerApps@2024-03-01' = if (!localDevOnly) {
             { name: 'Mailgun__FromName', value: mailgunFromName }
           ],
           deployImageModel ? [
-            { name: 'AzureOpenAI__ImageEndpoint', value: openaiProdImage.properties.endpoint },
+            { name: 'AzureOpenAI__ImageEndpoint', value: openaiProdImage.properties.endpoint }
             { name: 'AzureOpenAI__ImageApiKey', secretRef: 'openai-image-api-key' }
           ] : [],
           firebaseCredentialJsonBase64 != '' ? [{ name: 'Firebase__CredentialJsonBase64', secretRef: 'firebase-credential-base64' }] : [],
@@ -317,7 +317,7 @@ resource functionApp 'Microsoft.Web/sites@2024-04-01' = if (!localDevOnly) {
         { name: 'AzureWebJobsStorage', value: concat('DefaultEndpointsProtocol=https;AccountName=', storage.name, ';EndpointSuffix=', environment().suffixes.storage, ';AccountKey=', storage.listKeys().keys[0].value) } 
         { name: 'FUNCTIONS_EXTENSION_VERSION', value: '~4' } 
         { name: 'FUNCTIONS_WORKER_RUNTIME', value: 'dotnet-isolated' } 
-        { name: 'ConnectionStrings__DefaultConnection', value: concat('Server=tcp:', sqlServer.properties.fullyQualifiedDomainName, ',1433;Initial Catalog=', sqlDatabaseName, ';Persist Security Info=False;User ID=', sqlAdminLogin, ';Password=', sqlAdminPassword, ';MultipleActiveResultSets=False;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;') },
+        { name: 'ConnectionStrings__DefaultConnection', value: concat('Server=tcp:', sqlServer.properties.fullyQualifiedDomainName, ',1433;Initial Catalog=', sqlDatabaseName, ';Persist Security Info=False;User ID=', sqlAdminLogin, ';Password=', sqlAdminPassword, ';MultipleActiveResultSets=False;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;') }
         { name: 'Mailgun__ApiKey', value: mailgunApiKey }
         { name: 'Mailgun__Domain', value: mailgunDomain }
         { name: 'Mailgun__FromAddress', value: mailgunFromAddress }
