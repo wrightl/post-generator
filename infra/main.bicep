@@ -404,15 +404,15 @@ resource functionApp 'Microsoft.Web/sites@2024-04-01' = if (!localDevOnly) {
   }
 }
 
-resource staticWebApp 'Microsoft.Web/staticSites@2022-09-01' = if (!localDevOnly) {
-  name: staticWebAppName
-  location: location
-  sku: {
-    name: 'Free'
-    tier: 'Free'
-  }
-  properties: {}
-}
+// resource staticWebApp 'Microsoft.Web/staticSites@2022-09-01' = if (!localDevOnly) {
+//   name: staticWebAppName
+//   location: location
+//   sku: {
+//     name: 'Free'
+//     tier: 'Free'
+//   }
+//   properties: {}
+// }
 
 output acrLoginServer string = !localDevOnly ? acr.properties.loginServer : ''
 output acrName string = !localDevOnly ? acr.name : ''
