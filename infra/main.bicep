@@ -349,12 +349,13 @@ resource webApp 'Microsoft.App/containerApps@2024-03-01' = if (!localDevOnly) {
         image: webImage
         resources: { cpu: json('0.5'), memory: '1Gi' }
         env: [
-          { name: 'NEXT_PUBLIC_API_URL', value: 'https://${apiApp.properties.configuration.ingress.fqdn}' }
-          { name: 'NEXT_PUBLIC_FIREBASE_API_KEY', value: firebaseApiKey }
-          { name: 'NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN', value: firebaseAuthDomain }
-          { name: 'NEXT_PUBLIC_FIREBASE_PROJECT_ID', value: firebaseProjectId }
-          { name: 'NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET', value: firebaseStorageBucket }
-          { name: 'NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID', value: firebaseMessagingSenderId }
+          { name: 'PORT', value: '3000' },
+          { name: 'NEXT_PUBLIC_API_URL', value: 'https://${apiApp.properties.configuration.ingress.fqdn}' },
+          { name: 'NEXT_PUBLIC_FIREBASE_API_KEY', value: firebaseApiKey },
+          { name: 'NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN', value: firebaseAuthDomain },
+          { name: 'NEXT_PUBLIC_FIREBASE_PROJECT_ID', value: firebaseProjectId },
+          { name: 'NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET', value: firebaseStorageBucket },
+          { name: 'NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID', value: firebaseMessagingSenderId },
           { name: 'NEXT_PUBLIC_FIREBASE_APP_ID', value: firebaseAppId }
         ]
       }]
@@ -414,22 +415,12 @@ resource functionApp 'Microsoft.Web/sites@2024-04-01' = if (!localDevOnly) {
           type: 'blobContainer'
           value: '${storage.properties.primaryEndpoints.blob}${deploymentStorageContainerName}'
           authentication: {
-            type: 'SystemAssignedIdentity'
+            type: 'StorageAccountConnectionString'
+            storageAccountConnectionStringName: 'AzureWebJobsStorage'
           }
         }
       }
     }
-  }
-}
-
-// Grant Function App managed identity access to storage account for deployment
-resource functionAppStorageRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (!localDevOnly) {
-  name: guid(resourceGroup().id, functionApp.id, 'Storage Blob Data Contributor')
-  scope: storage
-  properties: {
-    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'ba92f5b4-2d11-453d-a403-e96b0029c9fe') // Storage Blob Data Contributor
-    principalId: functionApp.identity.principalId
-    principalType: 'ServicePrincipal'
   }
 }
 
