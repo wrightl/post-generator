@@ -73,7 +73,7 @@ jobs:
           azd env set FIREBASE_APP_ID "${{ vars.NEXT_PUBLIC_FIREBASE_APP_ID }}"
 
       - name: Run what-if
-        run: az deployment group what-if --resource-group ${{ env.RESOURCE_GROUP }} --template-file infra/main.bicep
+        run: az deployment group what-if --resource-group ${{ env.RESOURCE_GROUP }} --template-file infra/main.bicep --verbose
 
       # - name: Wait for in-progress deployments
       #   run: |
