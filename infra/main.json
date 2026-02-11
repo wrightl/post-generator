@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.40.2.10011",
-      "templateHash": "10794378033428300388"
+      "templateHash": "10260284468776774447"
     }
   },
   "parameters": {
@@ -184,7 +184,9 @@
     "sqlServerName": "[format('{0}-sql-{1}-{2}', parameters('baseName'), parameters('environmentName'), variables('uniqueSuffix'))]",
     "sqlDatabaseName": "postgenerator",
     "blobContainerName": "post-images",
-    "deploymentStorageContainerName": "[format('app-package-{0}-{1}', parameters('baseName'), parameters('environmentName'))]"
+    "deploymentStorageContainerName": "[format('app-package-{0}-{1}', parameters('baseName'), parameters('environmentName'))]",
+    "openAIImageAccountNameLocal": "[if(and(parameters('localDevOnly'), parameters('deployImageModel')), variables('openAIImageName'), '')]",
+    "openAIImageAccountNameProd": "[coalesce(if(and(not(parameters('localDevOnly')), parameters('deployImageModel')), variables('openAIImageName'), null()), '')]"
   },
   "resources": [
     {
@@ -640,11 +642,11 @@
     },
     "openAIImageEndpoint": {
       "type": "string",
-      "value": "[if(and(parameters('localDevOnly'), parameters('deployImageModel')), reference(resourceId('Microsoft.CognitiveServices/accounts', variables('openAIImageName')), '2024-10-01').endpoint, if(and(not(parameters('localDevOnly')), parameters('deployImageModel')), reference(resourceId('Microsoft.CognitiveServices/accounts', variables('openAIImageName')), '2024-10-01').endpoint, ''))]"
+      "value": "[if(parameters('localDevOnly'), if(and(parameters('localDevOnly'), parameters('deployImageModel')), reference(resourceId('Microsoft.CognitiveServices/accounts', variables('openAIImageName')), '2024-10-01').endpoint, ''), coalesce(tryGet(tryGet(if(and(not(parameters('localDevOnly')), parameters('deployImageModel')), reference(resourceId('Microsoft.CognitiveServices/accounts', variables('openAIImageName')), '2024-10-01', 'full'), null()), 'properties'), 'endpoint'), ''))]"
     },
     "openAIImageAccountName": {
       "type": "string",
-      "value": "[if(and(parameters('localDevOnly'), parameters('deployImageModel')), variables('openAIImageName'), if(and(not(parameters('localDevOnly')), parameters('deployImageModel')), variables('openAIImageName'), ''))]"
+      "value": "[if(parameters('localDevOnly'), variables('openAIImageAccountNameLocal'), variables('openAIImageAccountNameProd'))]"
     },
     "openAIChatAccountName": {
       "type": "string",

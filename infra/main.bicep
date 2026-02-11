@@ -243,8 +243,8 @@ resource containerAppEnv 'Microsoft.App/managedEnvironments@2024-03-01' = if (!l
     appLogsConfiguration: {
       destination: 'log-analytics'
       logAnalyticsConfiguration: {
-        customerId: logAnalytics.properties.customerId
-        sharedKey: logAnalytics.listKeys().primarySharedKey
+        customerId: logAnalytics!.properties.customerId
+        sharedKey: logAnalytics!.listKeys().primarySharedKey
       }
     }
   }
@@ -263,18 +263,18 @@ resource apiApp 'Microsoft.App/containerApps@2024-03-01' = if (!localDevOnly) {
         allowInsecure: false
       }
       registries: [{
-        server: acr.properties.loginServer
-        username: acr.listCredentials().username
+        server: acr!.properties.loginServer
+        username: acr!.listCredentials().username
         passwordSecretRef: 'acr-password'
       }]
       secrets: concat(
         [
-          { name: 'acr-password', value: acr.listCredentials().passwords[0].value }
-          { name: 'openai-api-key', value: openaiProdChat.listKeys().key1 }
-          { name: 'sql-connection-string', value: 'Server=tcp:${sqlServer.properties.fullyQualifiedDomainName},1433;Initial Catalog=${sqlDatabaseName};Persist Security Info=False;User ID=${sqlAdminLogin};Password=${sqlAdminPassword};MultipleActiveResultSets=False;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;' }
-          { name: 'blob-connection-string', value: 'DefaultEndpointsProtocol=https;AccountName=${storage.name};EndpointSuffix=${environment().suffixes.storage};AccountKey=${storage.listKeys().keys[0].value}' }
+          { name: 'acr-password', value: acr!.listCredentials().passwords[0].value }
+          { name: 'openai-api-key', value: openaiProdChat!.listKeys().key1 }
+          { name: 'sql-connection-string', value: 'Server=tcp:${sqlServer!.properties.fullyQualifiedDomainName},1433;Initial Catalog=${sqlDatabaseName};Persist Security Info=False;User ID=${sqlAdminLogin};Password=${sqlAdminPassword};MultipleActiveResultSets=False;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;' }
+          { name: 'blob-connection-string', value: 'DefaultEndpointsProtocol=https;AccountName=${storage!.name};EndpointSuffix=${environment().suffixes.storage};AccountKey=${storage!.listKeys().keys[0].value}' }
         ],
-        deployImageModel ? [{ name: 'openai-image-api-key', value: openaiProdImage.listKeys().key1 }] : [],
+        deployImageModel ? [{ name: 'openai-image-api-key', value: openaiProdImage!.listKeys().key1 }] : [],
         firebaseCredentialJsonBase64 != '' ? [{ name: 'firebase-credential-base64', value: firebaseCredentialJsonBase64 }] : [],
         mailgunApiKey != '' ? [{ name: 'mailgun-api-key', value: mailgunApiKey }] : []
       )
@@ -286,7 +286,7 @@ resource apiApp 'Microsoft.App/containerApps@2024-03-01' = if (!localDevOnly) {
         resources: { cpu: json('0.5'), memory: '1Gi' }
         env: concat(
           [
-            { name: 'AzureOpenAI__Endpoint', value: openaiProdChat.properties.endpoint }
+            { name: 'AzureOpenAI__Endpoint', value: openaiProdChat!.properties.endpoint }
             { name: 'AzureOpenAI__ApiKey', secretRef: 'openai-api-key' }
             { name: 'AzureOpenAI__ChatDeploymentName', value: 'gpt-4o' }
             { name: 'AzureOpenAI__ImageDeploymentName', value: 'dall-e-3' }
@@ -300,7 +300,7 @@ resource apiApp 'Microsoft.App/containerApps@2024-03-01' = if (!localDevOnly) {
             { name: 'Mailgun__FromName', value: mailgunFromName }
           ],
           deployImageModel ? [
-            { name: 'AzureOpenAI__ImageEndpoint', value: openaiProdImage.properties.endpoint }
+            { name: 'AzureOpenAI__ImageEndpoint', value: openaiProdImage!.properties.endpoint }
             { name: 'AzureOpenAI__ImageApiKey', secretRef: 'openai-image-api-key' }
           ] : [],
           firebaseCredentialJsonBase64 != '' ? [{ name: 'Firebase__CredentialJsonBase64', secretRef: 'firebase-credential-base64' }] : [],
@@ -335,12 +335,12 @@ resource webApp 'Microsoft.App/containerApps@2024-03-01' = if (!localDevOnly) {
         allowInsecure: false
       }
       registries: [{
-        server: acr.properties.loginServer
-        username: acr.listCredentials().username
+        server: acr!.properties.loginServer
+        username: acr!.listCredentials().username
         passwordSecretRef: 'acr-password'
       }]
       secrets: [
-        { name: 'acr-password', value: acr.listCredentials().passwords[0].value }
+        { name: 'acr-password', value: acr!.listCredentials().passwords[0].value }
       ]
     }
     template: {
@@ -350,7 +350,7 @@ resource webApp 'Microsoft.App/containerApps@2024-03-01' = if (!localDevOnly) {
         resources: { cpu: json('0.5'), memory: '1Gi' }
         env: [
           { name: 'PORT', value: '3000' }
-          { name: 'NEXT_PUBLIC_API_URL', value: 'https://${apiApp.properties.configuration.ingress.fqdn}' }
+          { name: 'NEXT_PUBLIC_API_URL', value: 'https://${apiApp!.properties.configuration.ingress.fqdn}' }
           { name: 'NEXT_PUBLIC_FIREBASE_API_KEY', value: firebaseApiKey }
           { name: 'NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN', value: firebaseAuthDomain }
           { name: 'NEXT_PUBLIC_FIREBASE_PROJECT_ID', value: firebaseProjectId }
@@ -433,19 +433,24 @@ resource webApp 'Microsoft.App/containerApps@2024-03-01' = if (!localDevOnly) {
 //   properties: {}
 // }
 
-output acrLoginServer string = !localDevOnly ? acr.properties.loginServer : ''
-output acrName string = !localDevOnly ? acr.name : ''
-output apiAppName string = !localDevOnly ? apiApp.name : ''
-output apiAppFqdn string = !localDevOnly ? apiApp.properties.configuration.ingress.fqdn : ''
-output apiUrl string = !localDevOnly ? 'https://${apiApp.properties.configuration.ingress.fqdn}' : ''
-output webAppName string = !localDevOnly ? webApp.name : ''
-output webAppFqdn string = !localDevOnly ? webApp.properties.configuration.ingress.fqdn : ''
-output webUrl string = !localDevOnly ? 'https://${webApp.properties.configuration.ingress.fqdn}' : ''
+var openAIImageEndpointLocal = localDevOnly && deployImageModel ? openaiImageAccount!.properties.endpoint : ''
+var openAIImageEndpointProd = openaiProdImage.?properties.?endpoint ?? ''
+var openAIImageAccountNameLocal = localDevOnly && deployImageModel ? openaiImageAccount!.name : ''
+var openAIImageAccountNameProd = openaiProdImage.?name ?? ''
+
+output acrLoginServer string = !localDevOnly ? acr!.properties.loginServer : ''
+output acrName string = !localDevOnly ? acr!.name : ''
+output apiAppName string = !localDevOnly ? apiApp!.name : ''
+output apiAppFqdn string = !localDevOnly ? apiApp!.properties.configuration.ingress.fqdn : ''
+output apiUrl string = !localDevOnly ? 'https://${apiApp!.properties.configuration.ingress.fqdn}' : ''
+output webAppName string = !localDevOnly ? webApp!.name : ''
+output webAppFqdn string = !localDevOnly ? webApp!.properties.configuration.ingress.fqdn : ''
+output webUrl string = !localDevOnly ? 'https://${webApp!.properties.configuration.ingress.fqdn}' : ''
 // output functionAppName string = !localDevOnly ? functionApp.name : ''
-output openAIEndpoint string = localDevOnly ? openaiChatAccount.properties.endpoint : openaiProdChat.properties.endpoint
-output openAIImageEndpoint string = localDevOnly && deployImageModel ? openaiImageAccount.properties.endpoint : (!localDevOnly && deployImageModel ? openaiProdImage.properties.endpoint : '')
-output openAIImageAccountName string = localDevOnly && deployImageModel ? openaiImageAccount.name : (!localDevOnly && deployImageModel ? openaiProdImage.name : '')
-output openAIChatAccountName string = localDevOnly ? openaiChatAccount.name : openaiProdChat.name
-output storageAccountName string = !localDevOnly ? storage.name : ''
+output openAIEndpoint string = localDevOnly ? openaiChatAccount!.properties.endpoint : openaiProdChat!.properties.endpoint
+output openAIImageEndpoint string = localDevOnly ? openAIImageEndpointLocal : openAIImageEndpointProd
+output openAIImageAccountName string = localDevOnly ? openAIImageAccountNameLocal : openAIImageAccountNameProd
+output openAIChatAccountName string = localDevOnly ? openaiChatAccount!.name : openaiProdChat!.name
+output storageAccountName string = !localDevOnly ? storage!.name : ''
 // output staticWebAppName string = !localDevOnly ? staticWebApp.name : ''
 output resourceGroupName string = resourceGroup().name
