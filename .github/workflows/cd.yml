@@ -7,7 +7,7 @@ on:
 env:
   RESOURCE_GROUP: ${{ vars.RESOURCE_GROUP || 'rg-postgenerator-dev' }}
   LOCATION: ${{ vars.LOCATION || 'westeurope' }}
-  AZURE_ENV_NAME: dev
+  AZURE_ENV_NAME: ${{ vars.AZURE_ENV_NAME || 'dev' }}
   AZURE_AI_LOCATION: ${{ vars.AZURE_AI_LOCATION || 'westeurope' }}
   AZURE_IMAGE_LOCATION: ${{ vars.AZURE_IMAGE_LOCATION || 'swedencentral' }}
 
