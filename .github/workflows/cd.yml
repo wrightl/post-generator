@@ -155,7 +155,7 @@ jobs:
         run: azd provision --no-prompt
 
       - name: Show deployment error details
-        if: failure() && steps.provision.outcome == 'failure'
+        if: always() && steps.provision.outcome == 'failure'
         run: |
           echo "=== Failed deployment error (inner errors) ==="
           FAILED_NAME=$(az deployment group list --resource-group ${{ env.RESOURCE_GROUP }} --query "[?properties.provisioningState=='Failed'].name | [0]" -o tsv 2>/dev/null || true)
