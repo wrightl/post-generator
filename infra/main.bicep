@@ -349,7 +349,7 @@ resource webApp 'Microsoft.App/containerApps@2024-03-01' = if (!localDevOnly) {
         image: webImage
         resources: { cpu: json('0.5'), memory: '1Gi' }
         env: [
-          { name: 'PORT', value: '3000' },
+          { name: 'PORT', value: '3000' }
           { name: 'NEXT_PUBLIC_API_URL', value: 'https://${apiApp.properties.configuration.ingress.fqdn}' }
           { name: 'NEXT_PUBLIC_FIREBASE_API_KEY', value: firebaseApiKey }
           { name: 'NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN', value: firebaseAuthDomain }
