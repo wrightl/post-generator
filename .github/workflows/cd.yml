@@ -142,7 +142,7 @@ jobs:
 
       - name: Provision infrastructure
         run: |
-          MAX_RETRIES=3
+          MAX_RETRIES=1
           RETRY_COUNT=0
           while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
             if azd provision --no-prompt; then
