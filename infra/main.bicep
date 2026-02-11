@@ -255,12 +255,16 @@ resource containerAppEnv 'Microsoft.App/managedEnvironments@2024-03-01' = if (!l
 resource apiApp 'Microsoft.App/containerApps@2024-03-01' = if (!localDevOnly) {
   name: apiAppName
   location: location
-  dependsOn: [
-    openaiProdChat
-    openaiProdChatDeployment
-    deployImageModel ? openaiProdImage : null
-    deployImageModel ? openaiProdImageDeployment : null
-  ]
+  dependsOn: concat(
+    [
+      openaiProdChat
+      openaiProdChatDeployment
+    ],
+    deployImageModel ? [
+      openaiProdImage
+      openaiProdImageDeployment
+    ] : []
+  )
   properties: {
     managedEnvironmentId: containerAppEnv.id
     configuration: {
