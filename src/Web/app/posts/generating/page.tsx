@@ -1,5 +1,6 @@
 'use client';
 
+import { PostImage } from '@/components/PostImage';
 import { useAuth } from '@/contexts/AuthContext';
 import {
     generateSeriesStream,
@@ -265,13 +266,12 @@ export default function PostsGeneratingPage() {
                                 <p className="line-clamp-2 text-sm text-[var(--text-muted)]">
                                     {post.content}
                                 </p>
-                                {post.imageUrl && (
-                                    <img
-                                        src={post.imageUrl}
-                                        alt=""
-                                        className="mt-1 max-h-24 rounded object-cover"
-                                    />
-                                )}
+                                <PostImage
+                                    postId={post.id}
+                                    idToken={idToken}
+                                    hasImage={!!post.imageUrl}
+                                    className="mt-1 max-h-24 rounded object-cover"
+                                />
                                 <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
                                     <div className="flex items-center gap-1">
                                         {isPersisted ? (

@@ -142,6 +142,17 @@ public class PostService : IPostService
         return PostMappings.ToDto(post);
     }
 
+    public async Task<PostDto?> SetPostImageUrlAsync(int userId, int postId, string? imageUrl, CancellationToken cancellationToken = default)
+    {
+        var post = await _db.Posts.FirstOrDefaultAsync(p => p.Id == postId && p.UserId == userId, cancellationToken);
+        if (post == null) return null;
+
+        post.ImageUrl = imageUrl;
+        post.UpdatedAt = DateTime.UtcNow;
+        await _db.SaveChangesAsync(cancellationToken);
+        return PostMappings.ToDto(post);
+    }
+
     public async Task<PostDto?> PublishNowAsync(int userId, int postId, CancellationToken cancellationToken = default)
     {
         var post = await _db.Posts.FirstOrDefaultAsync(p => p.Id == postId && p.UserId == userId, cancellationToken);

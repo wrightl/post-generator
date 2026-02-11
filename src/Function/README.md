@@ -1,6 +1,26 @@
 # PostGenerator Function
 
-Azure Function that runs on a timer to publish due posts to social platforms. Each platform has its own publisher; if config for a platform is missing, that publisher logs a warning and returns false (the post is marked Failed).
+Azure Function that runs on a **timer** (every 5 minutes) to publish due posts to social platforms. Each platform has its own publisher; if config for a platform is missing, that publisher logs a warning and returns false (the post is marked Failed).
+
+An **HTTP-triggered** function `TriggerPublish` is available so you can run the same publish job on demand (e.g. for local testing without waiting for the timer).
+
+## Running and debugging the Function locally
+
+1. **Start the Function**  
+   From VS Code: select the **Function** launch configuration and press F5. Or run `func start` from `src/Function` (ensure Azure Functions Core Tools is installed and Azurite is running if using `UseDevelopmentStorage=true`).
+
+2. **Trigger post sending immediately**  
+   Send a POST request to run the publish job:
+   ```bash
+   curl -X POST "http://localhost:7071/api/TriggerPublish"
+   ```
+   Use the URL printed by `func start` if it includes a function key, or add `?code=<key>` as required.
+
+3. **Test data**  
+   The publish job only processes posts with **Status = Scheduled** and **ScheduledAt** in the past (or now). Create or update a post to Scheduled with a due time, then call the TriggerPublish endpoint.
+
+4. **Debugging**  
+   Start the Function (F5 with the **Function** config), then use the **Azure Functions** VS Code extension’s **Attach to .NET Functions** so the debugger attaches to the worker. Set breakpoints in `PublishRunner` or any publisher (e.g. `BlueskyPublisher`, `FacebookPublisher`), then trigger a run with `POST /api/TriggerPublish` to hit them.
 
 ## Connection and mail
 

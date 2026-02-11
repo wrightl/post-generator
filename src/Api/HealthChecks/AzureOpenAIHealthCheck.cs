@@ -1,19 +1,20 @@
-using System.Net.Http.Headers;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Options;
+using OpenAI.Chat;
 using PostGenerator.Api.Options;
+using PostGenerator.Api.Services;
 
 namespace PostGenerator.Api.HealthChecks;
 
 public class AzureOpenAIHealthCheck : IHealthCheck
 {
+    private readonly IAzureOpenAIClientProvider _clientProvider;
     private readonly AzureOpenAIOptions _options;
-    private readonly IHttpClientFactory _httpClientFactory;
 
-    public AzureOpenAIHealthCheck(IOptions<AzureOpenAIOptions> options, IHttpClientFactory httpClientFactory)
+    public AzureOpenAIHealthCheck(IAzureOpenAIClientProvider clientProvider, IOptions<AzureOpenAIOptions> options)
     {
+        _clientProvider = clientProvider;
         _options = options.Value;
-        _httpClientFactory = httpClientFactory;
     }
 
     public async Task<HealthCheckResult> CheckHealthAsync(HealthCheckContext context, CancellationToken cancellationToken = default)
@@ -21,15 +22,17 @@ public class AzureOpenAIHealthCheck : IHealthCheck
         if (string.IsNullOrEmpty(_options.Endpoint) || string.IsNullOrEmpty(_options.ApiKey))
             return HealthCheckResult.Healthy("Azure OpenAI not configured (optional).");
 
+        var azureClient = _clientProvider.GetChatClient();
+        if (azureClient == null)
+            return HealthCheckResult.Healthy("Azure OpenAI not configured (optional).");
+
         try
         {
-            var client = _httpClientFactory.CreateClient();
-            var url = _options.Endpoint.TrimEnd('/') + "/openai/deployments?api-version=2024-02-15-preview";
-            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", _options.ApiKey);
-            using var response = await client.GetAsync(url, cancellationToken);
-            return response.IsSuccessStatusCode
-                ? HealthCheckResult.Healthy("Azure OpenAI is reachable.")
-                : HealthCheckResult.Degraded($"Azure OpenAI returned {response.StatusCode}.");
+            var chatClient = azureClient.GetChatClient(_options.ChatDeploymentName);
+            var messages = new ChatMessage[] { new SystemChatMessage("ping") };
+            var options = new ChatCompletionOptions { MaxOutputTokenCount = 1 };
+            _ = await chatClient.CompleteChatAsync(messages, options, cancellationToken);
+            return HealthCheckResult.Healthy("Azure OpenAI is reachable.");
         }
         catch (Exception ex)
         {

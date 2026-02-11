@@ -255,6 +255,47 @@ export async function generatePostImage(
     return JSON.parse(text) as Post;
 }
 
+export async function uploadPostImage(
+    idToken: string,
+    postId: number,
+    file: File,
+): Promise<Post> {
+    const formData = new FormData();
+    formData.append('file', file);
+    const res = await fetch(`${API_URL}/api/posts/${postId}/upload-image`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${idToken}` },
+        body: formData,
+    });
+    const text = await res.text();
+    if (!res.ok) {
+        let message = 'Failed to upload image';
+        try {
+            const body = JSON.parse(text) as { message?: string };
+            if (body?.message) message = body.message;
+        } catch {
+            if (text) message = text;
+        }
+        throw new Error(message);
+    }
+    return JSON.parse(text) as Post;
+}
+
+export async function removePostImage(
+    idToken: string,
+    postId: number,
+): Promise<Post> {
+    const res = await fetch(`${API_URL}/api/posts/${postId}/image`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${idToken}` },
+    });
+    if (!res.ok) {
+        const t = await res.text();
+        throw new Error(t || 'Failed to remove image');
+    }
+    return res.json();
+}
+
 export async function publishPostNow(
     idToken: string,
     postId: number,

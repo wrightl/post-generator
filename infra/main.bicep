@@ -15,14 +15,44 @@ param localDevOnly bool = false
 @description('When true, deploy dall-e-3 image model. Set false in regions where Standard SKU is not supported (e.g. West Europe).')
 param deployImageModel bool = true
 
-@description('When localDevOnly, region for chat (GPT). Ignored when localDevOnly is false.')
+@description('Region for chat (GPT). From AZURE_AI_LOCATION.')
 param openAIChatLocation string = 'westeurope'
 
-@description('When localDevOnly, region for image (DALL-E). Ignored when localDevOnly is false.')
+@description('Region for image (DALL-E). From AZURE_IMAGE_LOCATION.')
 param openAIImageLocation string = 'swedencentral'
+
+@description('SQL Server administrator login. From AZURE_SQL_ADMIN_LOGIN.')
+param sqlAdminLogin string = 'sqladmin'
+
+@secure()
+@description('SQL Server administrator password. From AZURE_SQL_ADMIN_PASSWORD secret.')
+param sqlAdminPassword string = ''
 
 @description('Initial API container image (replaced by CD)')
 param apiImage string = 'mcr.microsoft.com/azuredocs/containerapps-helloworld:latest'
+
+@description('Firebase project ID. From FIREBASE_PROJECT_ID.')
+param firebaseProjectId string = ''
+
+@secure()
+@description('Firebase service account JSON (base64). From FIREBASE_CREDENTIAL_JSON_BASE64.')
+param firebaseCredentialJsonBase64 string = ''
+
+@description('CORS allowed origins (comma-separated). From CORS_ORIGINS.')
+param corsOrigins string = ''
+
+@secure()
+@description('Mailgun API key. From MAILGUN_API_KEY.')
+param mailgunApiKey string = ''
+
+@description('Mailgun domain. From MAILGUN_DOMAIN.')
+param mailgunDomain string = ''
+
+@description('Mailgun from address. From MAILGUN_FROM_ADDRESS.')
+param mailgunFromAddress string = ''
+
+@description('Mailgun from name. From MAILGUN_FROM_NAME.')
+param mailgunFromName string = ''
 
 var uniqueSuffix = uniqueString(resourceGroup().id, baseName)
 var acrName = '${baseName}acr${uniqueSuffix}'
@@ -34,6 +64,10 @@ var logAnalyticsName = '${baseName}-logs-${environmentName}'
 var openAIName = '${baseName}-openai-${environmentName}-${uniqueSuffix}'
 var openAIChatName = '${baseName}-openai-chat-${environmentName}-${uniqueSuffix}'
 var openAIImageName = '${baseName}-openai-image-${environmentName}-${uniqueSuffix}'
+var sqlServerName = '${baseName}-sql-${environmentName}-${uniqueSuffix}'
+var sqlDatabaseName = 'postgenerator'
+var blobContainerName = 'post-images'
+var staticWebAppName = '${baseName}-web-${environmentName}'
 
 resource logAnalytics 'Microsoft.OperationalInsights/workspaces@2022-10-01' = if (!localDevOnly) {
   name: logAnalyticsName
@@ -58,6 +92,45 @@ resource storage 'Microsoft.Storage/storageAccounts@2023-01-01' = if (!localDevO
   location: location
   kind: 'StorageV2'
   sku: { name: 'Standard_LRS' }
+}
+
+resource blobService 'Microsoft.Storage/storageAccounts/blobServices@2023-01-01' = if (!localDevOnly) {
+  parent: storage
+  name: 'default'
+}
+
+resource blobContainer 'Microsoft.Storage/storageAccounts/blobServices/containers@2023-01-01' = if (!localDevOnly) {
+  parent: blobService
+  name: blobContainerName
+}
+
+resource sqlServer 'Microsoft.Sql/servers@2022-05-01-preview' = if (!localDevOnly) {
+  name: sqlServerName
+  location: location
+  properties: {
+    administratorLogin: sqlAdminLogin
+    administratorLoginPassword: sqlAdminPassword
+    version: '12.0'
+  }
+}
+
+resource sqlDb 'Microsoft.Sql/servers/databases@2022-05-01-preview' = if (!localDevOnly) {
+  parent: sqlServer
+  name: sqlDatabaseName
+  location: location
+  sku: {
+    name: 'S0'
+    tier: 'Standard'
+  }
+}
+
+resource sqlFirewallRule 'Microsoft.Sql/servers/firewallRules@2022-05-01-preview' = if (!localDevOnly) {
+  parent: sqlServer
+  name: 'AllowAzureServices'
+  properties: {
+    startIpAddress: '0.0.0.0'
+    endIpAddress: '0.0.0.0'
+  }
 }
 
 // Local dev: separate accounts so GPT can be in West Europe and DALL-E in Sweden Central regardless of RG location.
@@ -99,17 +172,17 @@ resource openaiImageAccountDeployment 'Microsoft.CognitiveServices/accounts/depl
   }
 }
 
-// Full deploy: single account in resource group location (dall-e-3 only when deployImageModel and supported in region).
-resource openai 'Microsoft.CognitiveServices/accounts@2024-10-01' = if (!localDevOnly) {
-  name: openAIName
-  location: location
+// Full deploy: chat account in AZURE_AI_LOCATION, image account in AZURE_IMAGE_LOCATION (when deployImageModel).
+resource openaiProdChat 'Microsoft.CognitiveServices/accounts@2024-10-01' = if (!localDevOnly) {
+  name: openAIChatName
+  location: openAIChatLocation
   kind: 'OpenAI'
   sku: { name: 'S0' }
   properties: {}
 }
 
-resource openaiChatDeployment 'Microsoft.CognitiveServices/accounts/deployments@2023-05-01' = if (!localDevOnly) {
-  parent: openai
+resource openaiProdChatDeployment 'Microsoft.CognitiveServices/accounts/deployments@2023-05-01' = if (!localDevOnly) {
+  parent: openaiProdChat
   name: 'gpt-4o'
   sku: { name: 'GlobalStandard', capacity: 10 }
   properties: {
@@ -119,8 +192,16 @@ resource openaiChatDeployment 'Microsoft.CognitiveServices/accounts/deployments@
   }
 }
 
-resource openaiImageDeployment 'Microsoft.CognitiveServices/accounts/deployments@2023-05-01' = if (!localDevOnly && deployImageModel) {
-  parent: openai
+resource openaiProdImage 'Microsoft.CognitiveServices/accounts@2024-10-01' = if (!localDevOnly && deployImageModel) {
+  name: openAIImageName
+  location: openAIImageLocation
+  kind: 'OpenAI'
+  sku: { name: 'S0' }
+  properties: {}
+}
+
+resource openaiProdImageDeployment 'Microsoft.CognitiveServices/accounts/deployments@2023-05-01' = if (!localDevOnly && deployImageModel) {
+  parent: openaiProdImage
   name: 'dall-e-3'
   sku: { name: 'Standard', capacity: 1 }
   properties: {
@@ -161,14 +242,45 @@ resource apiApp 'Microsoft.App/containerApps@2024-03-01' = if (!localDevOnly) {
         username: acr.listCredentials().username
         passwordSecretRef: 'acr-password'
       }]
-      secrets: [{ name: 'acr-password', value: acr.listCredentials().passwords[0].value }, { name: 'openai-api-key', value: openai.listKeys().key1 }]
+      secrets: concat(
+        [
+          { name: 'acr-password', value: acr.listCredentials().passwords[0].value }
+          , { name: 'openai-api-key', value: openaiProdChat.listKeys().key1 }
+          , { name: 'sql-connection-string', value: concat('Server=tcp:', sqlServer.properties.fullyQualifiedDomainName, ',1433;Initial Catalog=', sqlDatabaseName, ';Persist Security Info=False;User ID=', sqlAdminLogin, ';Password=', sqlAdminPassword, ';MultipleActiveResultSets=False;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;') }
+          , { name: 'blob-connection-string', value: concat('DefaultEndpointsProtocol=https;AccountName=', storage.name, ';EndpointSuffix=', environment().suffixes.storage, ';AccountKey=', storage.listKeys().keys[0].value) }
+        ],
+        deployImageModel ? [{ name: 'openai-image-api-key', value: openaiProdImage.listKeys().key1 }] : []
+        , firebaseCredentialJsonBase64 != '' ? [{ name: 'firebase-credential-base64', value: firebaseCredentialJsonBase64 }] : []
+        , mailgunApiKey != '' ? [{ name: 'mailgun-api-key', value: mailgunApiKey }] : []
+      )
     }
     template: {
       containers: [{
         name: 'api'
         image: apiImage
         resources: { cpu: json('0.5'), memory: '1Gi' }
-        env: [{ name: 'AzureOpenAI__Endpoint', value: openai.properties.endpoint }, { name: 'AzureOpenAI__ApiKey', secretRef: 'openai-api-key' }, { name: 'AzureOpenAI__ChatDeploymentName', value: 'gpt-4o' }, { name: 'AzureOpenAI__ImageDeploymentName', value: 'dall-e-3' }]
+        env: concat(
+          [
+            { name: 'AzureOpenAI__Endpoint', value: openaiProdChat.properties.endpoint }
+            , { name: 'AzureOpenAI__ApiKey', secretRef: 'openai-api-key' }
+            , { name: 'AzureOpenAI__ChatDeploymentName', value: 'gpt-4o' }
+            , { name: 'AzureOpenAI__ImageDeploymentName', value: 'dall-e-3' }
+            , { name: 'ConnectionStrings__DefaultConnection', secretRef: 'sql-connection-string' }
+            , { name: 'BlobStorage__ConnectionString', secretRef: 'blob-connection-string' }
+            , { name: 'BlobStorage__ContainerName', value: blobContainerName }
+            , { name: 'Firebase__ProjectId', value: firebaseProjectId }
+            , { name: 'Cors__Origins', value: corsOrigins }
+            , { name: 'Mailgun__Domain', value: mailgunDomain }
+            , { name: 'Mailgun__FromAddress', value: mailgunFromAddress }
+            , { name: 'Mailgun__FromName', value: mailgunFromName }
+          ],
+          deployImageModel ? [
+            { name: 'AzureOpenAI__ImageEndpoint', value: openaiProdImage.properties.endpoint }
+            , { name: 'AzureOpenAI__ImageApiKey', secretRef: 'openai-image-api-key' }
+          ] : []
+          , firebaseCredentialJsonBase64 != '' ? [{ name: 'Firebase__CredentialJsonBase64', secretRef: 'firebase-credential-base64' }] : []
+          , mailgunApiKey != '' ? [{ name: 'Mailgun__ApiKey', secretRef: 'mailgun-api-key' }] : []
+        )
       }]
       scale: {
         minReplicas: 0
@@ -201,7 +313,16 @@ resource functionApp 'Microsoft.Web/sites@2024-04-01' = if (!localDevOnly) {
     serverFarmId: functionPlan.id
     httpsOnly: true
     siteConfig: {
-      appSettings: [{ name: 'AzureWebJobsStorage', value: 'DefaultEndpointsProtocol=https;AccountName=${storage.name};EndpointSuffix=${environment().suffixes.storage};AccountKey=${storage.listKeys().keys[0].value}' }, { name: 'FUNCTIONS_EXTENSION_VERSION', value: '~4' }, { name: 'FUNCTIONS_WORKER_RUNTIME', value: 'dotnet-isolated' }]
+      appSettings: [
+        { name: 'AzureWebJobsStorage', value: concat('DefaultEndpointsProtocol=https;AccountName=', storage.name, ';EndpointSuffix=', environment().suffixes.storage, ';AccountKey=', storage.listKeys().keys[0].value) }
+        , { name: 'FUNCTIONS_EXTENSION_VERSION', value: '~4' }
+        , { name: 'FUNCTIONS_WORKER_RUNTIME', value: 'dotnet-isolated' }
+        , { name: 'ConnectionStrings__DefaultConnection', value: concat('Server=tcp:', sqlServer.properties.fullyQualifiedDomainName, ',1433;Initial Catalog=', sqlDatabaseName, ';Persist Security Info=False;User ID=', sqlAdminLogin, ';Password=', sqlAdminPassword, ';MultipleActiveResultSets=False;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;') }
+        , { name: 'Mailgun__ApiKey', value: mailgunApiKey }
+        , { name: 'Mailgun__Domain', value: mailgunDomain }
+        , { name: 'Mailgun__FromAddress', value: mailgunFromAddress }
+        , { name: 'Mailgun__FromName', value: mailgunFromName }
+      ]
     }
     functionAppConfig: {
       scaleAndConcurrency: {
@@ -213,14 +334,26 @@ resource functionApp 'Microsoft.Web/sites@2024-04-01' = if (!localDevOnly) {
   }
 }
 
+resource staticWebApp 'Microsoft.Web/staticSites@2022-09-01' = if (!localDevOnly) {
+  name: staticWebAppName
+  location: location
+  sku: {
+    name: 'Free'
+    tier: 'Free'
+  }
+  properties: {}
+}
+
 output acrLoginServer string = !localDevOnly ? acr.properties.loginServer : ''
 output acrName string = !localDevOnly ? acr.name : ''
 output apiAppName string = !localDevOnly ? apiApp.name : ''
 output apiAppFqdn string = !localDevOnly ? apiApp.properties.configuration.ingress.fqdn : ''
+output apiUrl string = !localDevOnly ? 'https://${apiApp.properties.configuration.ingress.fqdn}' : ''
 output functionAppName string = !localDevOnly ? functionApp.name : ''
-output openAIEndpoint string = localDevOnly ? openaiChatAccount.properties.endpoint : openai.properties.endpoint
-output openAIImageEndpoint string = localDevOnly && deployImageModel ? openaiImageAccount.properties.endpoint : (!localDevOnly && deployImageModel ? openai.properties.endpoint : '')
-output openAIImageAccountName string = localDevOnly && deployImageModel ? openaiImageAccount.name : ''
-output openAIChatAccountName string = localDevOnly ? openaiChatAccount.name : ''
+output openAIEndpoint string = localDevOnly ? openaiChatAccount.properties.endpoint : openaiProdChat.properties.endpoint
+output openAIImageEndpoint string = localDevOnly && deployImageModel ? openaiImageAccount.properties.endpoint : (!localDevOnly && deployImageModel ? openaiProdImage.properties.endpoint : '')
+output openAIImageAccountName string = localDevOnly && deployImageModel ? openaiImageAccount.name : (!localDevOnly && deployImageModel ? openaiProdImage.name : '')
+output openAIChatAccountName string = localDevOnly ? openaiChatAccount.name : openaiProdChat.name
 output storageAccountName string = !localDevOnly ? storage.name : ''
+output staticWebAppName string = !localDevOnly ? staticWebApp.name : ''
 output resourceGroupName string = resourceGroup().name

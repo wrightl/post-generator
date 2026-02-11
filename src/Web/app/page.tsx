@@ -1,5 +1,6 @@
 'use client';
 
+import { PostImage } from '@/components/PostImage';
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import Link from 'next/link';
@@ -86,6 +87,7 @@ export default function Home() {
                     stats={stats}
                     statsLoading={statsLoading}
                     statsError={statsError}
+                    idToken={idToken}
                     onRefresh={idToken ? () => loadStats(idToken) : () => {}}
                     onRefreshEngagement={
                         idToken
@@ -113,12 +115,14 @@ function DashboardSection({
     stats,
     statsLoading,
     statsError,
+    idToken,
     onRefresh,
     onRefreshEngagement,
 }: {
     stats: DashboardStats | null;
     statsLoading: boolean;
     statsError: string | null;
+    idToken: string | null;
     onRefresh: () => void;
     onRefreshEngagement?: (postId: number) => Promise<void>;
 }) {
@@ -288,6 +292,7 @@ function DashboardSection({
                 {stats.mostRecentPublished ? (
                     <RecentPublishedCard
                         post={stats.mostRecentPublished}
+                        idToken={idToken}
                         onRefreshEngagement={onRefreshEngagement}
                     />
                 ) : (
@@ -303,9 +308,11 @@ function DashboardSection({
 
 function RecentPublishedCard({
     post,
+    idToken,
     onRefreshEngagement,
 }: {
     post: Post;
+    idToken: string | null;
     onRefreshEngagement?: (postId: number) => Promise<void>;
 }) {
     const [refreshing, setRefreshing] = useState(false);
@@ -338,13 +345,12 @@ function RecentPublishedCard({
 
     return (
         <div className="mt-4 flex flex-col gap-4 sm:flex-row">
-            {post.imageUrl && (
-                <img
-                    src={post.imageUrl}
-                    alt=""
-                    className="h-32 w-full shrink-0 rounded-lg object-cover sm:w-48"
-                />
-            )}
+            <PostImage
+                postId={post.id}
+                idToken={idToken}
+                hasImage={!!post.imageUrl}
+                className="h-32 w-full shrink-0 rounded-lg object-cover sm:w-48"
+            />
             <div className="min-w-0 flex-1">
                 <p className="text-sm text-[var(--text-muted)]">
                     {post.platform} ·{' '}

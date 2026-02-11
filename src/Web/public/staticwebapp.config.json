@@ -1,0 +1,11 @@
+{
+  "routes": [
+    {
+      "route": "/posts/*/edit",
+      "rewrite": "/posts/0/edit"
+    }
+  ],
+  "navigationFallback": {
+    "rewrite": "/index.html"
+  }
+}

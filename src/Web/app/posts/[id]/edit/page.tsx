@@ -1,15 +1,18 @@
 'use client';
 
 import { useAuth } from '@/contexts/AuthContext';
+import { PostImage } from '@/components/PostImage';
 import {
     getPost,
     refreshPostEngagement,
+    removePostImage,
     updatePost,
+    uploadPostImage,
     type Post,
 } from '@/lib/api';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 const STATUSES = ['Draft', 'Scheduled', 'Published', 'Failed'];
 
@@ -42,6 +45,9 @@ export default function EditPostPage() {
     const [scheduledAt, setScheduledAt] = useState('');
     const [status, setStatus] = useState('');
     const [refreshingEngagement, setRefreshingEngagement] = useState(false);
+    const [uploadingImage, setUploadingImage] = useState(false);
+    const [removingImage, setRemovingImage] = useState(false);
+    const uploadInputRef = useRef<HTMLInputElement>(null);
 
     const load = useCallback(async () => {
         if (!idToken || !Number.isInteger(postId) || postId < 1) return;
@@ -107,6 +113,49 @@ export default function EditPostPage() {
             );
         } finally {
             setRefreshingEngagement(false);
+        }
+    };
+
+    const handleUploadImageClick = () => {
+        uploadInputRef.current?.click();
+    };
+
+    const handleUploadImageChange = async (
+        e: React.ChangeEvent<HTMLInputElement>,
+    ) => {
+        const file = e.target.files?.[0];
+        if (!file || !idToken || !post) {
+            e.target.value = '';
+            return;
+        }
+        setUploadingImage(true);
+        setError(null);
+        try {
+            const updated = await uploadPostImage(idToken, post.id, file);
+            setPost(updated);
+        } catch (err) {
+            setError(
+                err instanceof Error ? err.message : 'Image upload failed',
+            );
+        } finally {
+            setUploadingImage(false);
+            e.target.value = '';
+        }
+    };
+
+    const handleRemoveImage = async () => {
+        if (!idToken || !post?.imageUrl) return;
+        setRemovingImage(true);
+        setError(null);
+        try {
+            const updated = await removePostImage(idToken, post.id);
+            setPost(updated);
+        } catch (err) {
+            setError(
+                err instanceof Error ? err.message : 'Failed to remove image',
+            );
+        } finally {
+            setRemovingImage(false);
         }
     };
 
@@ -189,6 +238,57 @@ export default function EditPostPage() {
                     {error}
                 </p>
             )}
+
+            <div className="mt-4">
+                <span className={labelClass}>Image</span>
+                <input
+                    ref={uploadInputRef}
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp,image/gif"
+                    className="sr-only"
+                    aria-hidden
+                    onChange={handleUploadImageChange}
+                />
+                {post.imageUrl ? (
+                    <div className="mt-1.5 space-y-2">
+                        <PostImage
+                            postId={post.id}
+                            idToken={idToken}
+                            hasImage
+                            className="max-h-40 rounded border border-[var(--border)] object-cover"
+                        />
+                        <div className="flex flex-wrap gap-2">
+                            <button
+                                type="button"
+                                onClick={handleUploadImageClick}
+                                disabled={uploadingImage}
+                                className="rounded border border-[var(--border)] bg-[var(--surface)] px-3 py-1.5 text-sm text-[var(--text)] hover:opacity-90 disabled:opacity-50"
+                            >
+                                {uploadingImage ? 'Uploading…' : 'Replace image'}
+                            </button>
+                            <button
+                                type="button"
+                                onClick={handleRemoveImage}
+                                disabled={removingImage}
+                                className="rounded border border-red-300 bg-red-50 px-3 py-1.5 text-sm text-red-700 hover:bg-red-100 disabled:opacity-50 dark:border-red-800 dark:bg-red-900/20 dark:text-red-300 dark:hover:bg-red-900/30"
+                            >
+                                {removingImage ? 'Removing…' : 'Remove image'}
+                            </button>
+                        </div>
+                    </div>
+                ) : (
+                    <div className="mt-1.5">
+                        <button
+                            type="button"
+                            onClick={handleUploadImageClick}
+                            disabled={uploadingImage}
+                            className="rounded border border-[var(--border)] bg-[var(--surface)] px-3 py-1.5 text-sm text-[var(--text)] hover:opacity-90 disabled:opacity-50"
+                        >
+                            {uploadingImage ? 'Uploading…' : 'Upload image'}
+                        </button>
+                    </div>
+                )}
+            </div>
 
             <form onSubmit={handleSubmit} className="mt-4 space-y-4">
                 <div>

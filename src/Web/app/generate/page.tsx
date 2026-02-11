@@ -348,19 +348,45 @@ export default function GeneratePage() {
                                 Start date{' '}
                                 <span className="text-red-600">*</span>
                             </label>
-                            <input
-                                id="startDate"
-                                type="date"
-                                value={startDate}
-                                onChange={(e) => setStartDate(e.target.value)}
-                                required
-                                className={`${inputClass} ${error?.toLowerCase().includes('date') ? 'border-red-500 focus:ring-red-500' : ''}`}
-                                aria-invalid={
-                                    error?.toLowerCase().includes('date')
-                                        ? true
-                                        : undefined
-                                }
-                            />
+                            <div className="flex flex-wrap items-center gap-2">
+                                <input
+                                    id="startDate"
+                                    type="date"
+                                    value={startDate}
+                                    onChange={(e) => setStartDate(e.target.value)}
+                                    required
+                                    className={`${inputClass} flex-1 min-w-0 ${error?.toLowerCase().includes('date') ? 'border-red-500 focus:ring-red-500' : ''}`}
+                                    aria-invalid={
+                                        error?.toLowerCase().includes('date')
+                                            ? true
+                                            : undefined
+                                    }
+                                />
+                                <button
+                                    type="button"
+                                    onClick={() =>
+                                        setStartDate(
+                                            new Date()
+                                                .toISOString()
+                                                .slice(0, 10),
+                                        )
+                                    }
+                                    className="rounded border border-[var(--border)] bg-[var(--surface)] px-2.5 py-1.5 text-sm text-[var(--text)] hover:opacity-90"
+                                >
+                                    Today
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        const d = new Date();
+                                        d.setDate(d.getDate() + 1);
+                                        setStartDate(d.toISOString().slice(0, 10));
+                                    }}
+                                    className="rounded border border-[var(--border)] bg-[var(--surface)] px-2.5 py-1.5 text-sm text-[var(--text)] hover:opacity-90"
+                                >
+                                    Tomorrow
+                                </button>
+                            </div>
                         </div>
                         <div>
                             <label

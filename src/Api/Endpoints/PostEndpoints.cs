@@ -1,4 +1,5 @@
 using System.Net.Http;
+using Azure;
 using PostGenerator.Api.EndpointFilters;
 using PostGenerator.Api.Models;
 using PostGenerator.Api.Services;
@@ -13,13 +14,25 @@ public static class PostEndpoints
     {
         app.MapGet("/api/posts", List).RequireAuthorization().AddEndpointFilter<RequireCurrentUserFilter>();
         app.MapGet("/api/posts/{id:int}", GetById).RequireAuthorization().AddEndpointFilter<RequireCurrentUserFilter>();
+        app.MapGet("/api/posts/{id:int}/image", GetImage).RequireAuthorization().AddEndpointFilter<RequireCurrentUserFilter>();
         app.MapPost("/api/posts", Create).RequireAuthorization().AddEndpointFilter<RequireCurrentUserFilter>().AddEndpointFilter<ValidationFilter<CreatePostRequest>>();
         app.MapPatch("/api/posts/{id:int}", Update).RequireAuthorization().AddEndpointFilter<RequireCurrentUserFilter>().AddEndpointFilter<ValidationFilter<UpdatePostRequest>>();
         app.MapDelete("/api/posts/{id:int}", Delete).RequireAuthorization().AddEndpointFilter<RequireCurrentUserFilter>();
         app.MapPost("/api/posts/{id:int}/generate-image", GenerateImage).RequireAuthorization().AddEndpointFilter<RequireCurrentUserFilter>();
+        app.MapPost("/api/posts/{id:int}/upload-image", UploadImage)
+            .DisableAntiforgery()
+            .RequireAuthorization()
+            .AddEndpointFilter<RequireCurrentUserFilter>();
+        app.MapDelete("/api/posts/{id:int}/image", RemoveImage).RequireAuthorization().AddEndpointFilter<RequireCurrentUserFilter>();
         app.MapPost("/api/posts/{id:int}/publish-now", PublishNow).RequireAuthorization().AddEndpointFilter<RequireCurrentUserFilter>();
         app.MapPost("/api/posts/{id:int}/refresh-engagement", RefreshEngagement).RequireAuthorization().AddEndpointFilter<RequireCurrentUserFilter>();
     }
+
+    private const long MaxUploadImageBytes = 5 * 1024 * 1024; // 5MB
+    private static readonly HashSet<string> AllowedImageContentTypes = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "image/jpeg", "image/jpg", "image/png", "image/webp", "image/gif",
+    };
 
     private const int DefaultPageSize = 20;
     private const int MaxPageSize = 100;
@@ -54,6 +67,24 @@ public static class PostEndpoints
         var post = await postService.GetByIdAsync(currentUser.UserId!.Value, id, ct);
         if (post == null) return Results.NotFound();
         return Results.Ok(post);
+    }
+
+    private static async Task<IResult> GetImage(
+        int id,
+        ICurrentUserService currentUser,
+        IPostService postService,
+        IImageService imageService,
+        CancellationToken ct)
+    {
+        var post = await postService.GetByIdAsync(currentUser.UserId!.Value, id, ct);
+        if (post == null || string.IsNullOrEmpty(post.ImageUrl))
+            return Results.NotFound();
+
+        var result = await imageService.GetImageAsync(post.ImageUrl, ct);
+        if (result == null)
+            return Results.NotFound();
+
+        return Results.File(result.Value.Stream, result.Value.ContentType);
     }
 
     private static async Task<IResult> Create(
@@ -113,6 +144,54 @@ public static class PostEndpoints
         {
             return Results.BadRequest(new { message = ex.Message });
         }
+        catch (RequestFailedException ex)
+        {
+            return Results.BadRequest(new { message = ex.Message });
+        }
+    }
+
+    private static async Task<IResult> UploadImage(
+        int id,
+        IFormFile? file,
+        ICurrentUserService currentUser,
+        IPostService postService,
+        IImageService imageService,
+        CancellationToken ct)
+    {
+        var post = await postService.GetByIdAsync(currentUser.UserId!.Value, id, ct);
+        if (post == null) return Results.NotFound();
+        if (post.Status != "Draft" && post.Status != "Scheduled")
+            return Results.BadRequest(new { message = "Only draft or scheduled posts can have an image uploaded." });
+
+        if (file == null || file.Length == 0)
+            return Results.BadRequest(new { message = "No file or empty file." });
+        if (file.Length > MaxUploadImageBytes)
+            return Results.BadRequest(new { message = "File size must be 5MB or less." });
+        if (!AllowedImageContentTypes.Contains(file.ContentType))
+            return Results.BadRequest(new { message = "Allowed types: image/jpeg, image/png, image/webp, image/gif." });
+
+        try
+        {
+            await using var stream = file.OpenReadStream();
+            var url = await imageService.UploadAsync(stream, id.ToString(), file.ContentType, ct);
+            var updated = await postService.SetPostImageUrlAsync(currentUser.UserId!.Value, id, url, ct);
+            return Results.Ok(updated);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Results.BadRequest(new { message = ex.Message });
+        }
+    }
+
+    private static async Task<IResult> RemoveImage(
+        int id,
+        ICurrentUserService currentUser,
+        IPostService postService,
+        CancellationToken ct)
+    {
+        var updated = await postService.SetPostImageUrlAsync(currentUser.UserId!.Value, id, null, ct);
+        if (updated == null) return Results.NotFound();
+        return Results.Ok(updated);
     }
 
     private static async Task<IResult> PublishNow(

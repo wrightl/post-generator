@@ -1,15 +1,17 @@
 'use client';
 
 import { useAuth } from '@/contexts/AuthContext';
+import { PostImage } from '@/components/PostImage';
 import {
     deletePost,
     fetchPosts,
     generatePostImage,
     publishPostNow,
+    uploadPostImage,
     type Post,
 } from '@/lib/api';
 import Link from 'next/link';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 const PAGE_SIZE = 10;
 const selectClass =
@@ -111,6 +113,26 @@ function IconSend({ className }: { className?: string }) {
         </svg>
     );
 }
+function IconUpload({ className }: { className?: string }) {
+    return (
+        <svg
+            className={className}
+            width="18"
+            height="18"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden
+        >
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+            <polyline points="17 8 12 3 7 8" />
+            <line x1="12" x2="12" y1="3" y2="15" />
+        </svg>
+    );
+}
 
 export default function PostsPage() {
     const { appUser, idToken, loading: authLoading } = useAuth();
@@ -126,10 +148,15 @@ export default function PostsPage() {
     const [generatingImageId, setGeneratingImageId] = useState<number | null>(
         null,
     );
+    const [uploadingImageId, setUploadingImageId] = useState<number | null>(
+        null,
+    );
     const [publishNowPostId, setPublishNowPostId] = useState<number | null>(
         null,
     );
     const [publishingId, setPublishingId] = useState<number | null>(null);
+    const uploadInputRef = useRef<HTMLInputElement>(null);
+    const uploadTargetPostIdRef = useRef<number | null>(null);
 
     const load = useCallback(async () => {
         if (!idToken) return;
@@ -197,6 +224,37 @@ export default function PostsPage() {
             );
         } finally {
             setGeneratingImageId(null);
+        }
+    };
+
+    const handleUploadImageClick = (postId: number) => {
+        uploadTargetPostIdRef.current = postId;
+        uploadInputRef.current?.click();
+    };
+
+    const handleUploadImageChange = async (
+        e: React.ChangeEvent<HTMLInputElement>,
+    ) => {
+        const file = e.target.files?.[0];
+        const postId = uploadTargetPostIdRef.current;
+        if (!file || postId == null || !idToken) {
+            uploadTargetPostIdRef.current = null;
+            e.target.value = '';
+            return;
+        }
+        setUploadingImageId(postId);
+        setError(null);
+        try {
+            const updated = await uploadPostImage(idToken, postId, file);
+            setPosts((prev) => prev.map((p) => (p.id === postId ? updated : p)));
+        } catch (err) {
+            setError(
+                err instanceof Error ? err.message : 'Image upload failed',
+            );
+        } finally {
+            setUploadingImageId(null);
+            uploadTargetPostIdRef.current = null;
+            e.target.value = '';
         }
     };
 
@@ -325,6 +383,14 @@ export default function PostsPage() {
                 </div>
             </div>
 
+            <input
+                ref={uploadInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp,image/gif"
+                className="sr-only"
+                aria-hidden
+                onChange={handleUploadImageChange}
+            />
             {error && (
                 <p className="mt-2 text-red-600" role="alert">
                     {error}
@@ -379,13 +445,12 @@ export default function PostsPage() {
                         <p className="line-clamp-2 text-sm text-[var(--text-muted)]">
                             {p.content}
                         </p>
-                        {p.imageUrl && (
-                            <img
-                                src={p.imageUrl}
-                                alt=""
-                                className="mt-1 max-h-24 rounded object-cover"
-                            />
-                        )}
+                        <PostImage
+                            postId={p.id}
+                            idToken={idToken}
+                            hasImage={!!p.imageUrl}
+                            className="mt-1 max-h-24 rounded object-cover"
+                        />
                         <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
                             <div className="flex items-center gap-1">
                                 <Link
@@ -395,6 +460,28 @@ export default function PostsPage() {
                                 >
                                     <IconEdit />
                                 </Link>
+                                <button
+                                    type="button"
+                                    onClick={() => handleUploadImageClick(p.id)}
+                                    disabled={
+                                        uploadingImageId === p.id ||
+                                        (p.status !== 'Draft' &&
+                                            p.status !== 'Scheduled')
+                                    }
+                                    className={iconBtnClass}
+                                    title={
+                                        uploadingImageId === p.id
+                                            ? 'Uploading…'
+                                            : 'Upload image'
+                                    }
+                                    aria-label={
+                                        uploadingImageId === p.id
+                                            ? 'Uploading…'
+                                            : 'Upload image'
+                                    }
+                                >
+                                    <IconUpload />
+                                </button>
                                 <button
                                     type="button"
                                     onClick={() => handleGenerateImage(p.id)}
@@ -461,15 +548,6 @@ export default function PostsPage() {
                     </div>
                 </div>
             )}
-
-            <p className="mt-6">
-                <Link
-                    href="/"
-                    className="text-[var(--primary)] underline hover:text-[var(--primary-hover)]"
-                >
-                    Back to home
-                </Link>
-            </p>
 
             {publishNowPostId != null && (
                 <div

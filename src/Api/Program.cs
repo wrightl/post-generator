@@ -25,6 +25,7 @@ builder.Services.Configure<BlobStorageOptions>(builder.Configuration.GetSection(
 builder.Services.Configure<MailgunOptions>(builder.Configuration.GetSection(MailgunOptions.SectionName));
 builder.Services.ConfigureHttpJsonOptions(options => options.SerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase);
 builder.Services.AddHttpClient();
+builder.Services.AddSingleton<IAzureOpenAIClientProvider, AzureOpenAIClientProvider>();
 builder.Services.AddScoped<IMailgunNotificationService, MailgunNotificationService>();
 builder.Services.AddScoped<IPostGenerationService, PostGenerationService>();
 builder.Services.AddScoped<IImageService, ImageService>();
@@ -64,7 +65,16 @@ builder.Services.AddCors(options =>
 {
     options.AddDefaultPolicy(policy =>
     {
-        var origins = builder.Configuration.GetSection("Cors:Origins").Get<string[]>() ?? new[] { "http://localhost:3000" };
+        var originsSection = builder.Configuration.GetSection("Cors:Origins").Get<string[]>();
+        if (originsSection?.Length > 0)
+        {
+            policy.WithOrigins(originsSection).AllowAnyMethod().AllowAnyHeader();
+            return;
+        }
+        var originsStr = builder.Configuration["Cors__Origins"];
+        var origins = string.IsNullOrWhiteSpace(originsStr)
+            ? new[] { "http://localhost:3000" }
+            : originsStr.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
         policy.WithOrigins(origins).AllowAnyMethod().AllowAnyHeader();
     });
 });

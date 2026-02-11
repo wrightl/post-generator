@@ -1,23 +1,25 @@
-using System.Net.Http.Json;
+using System.Net.Http;
 using System.Text.Json;
+using Azure;
 using Microsoft.Extensions.Options;
+using OpenAI.Chat;
 using PostGenerator.Api.Options;
 
 namespace PostGenerator.Api.Services;
 
 public class PostGenerationService : IPostGenerationService
 {
+    private readonly IAzureOpenAIClientProvider _clientProvider;
     private readonly AzureOpenAIOptions _options;
-    private readonly IHttpClientFactory _httpClientFactory;
     private readonly ILogger<PostGenerationService> _logger;
 
     public PostGenerationService(
+        IAzureOpenAIClientProvider clientProvider,
         IOptions<AzureOpenAIOptions> options,
-        IHttpClientFactory httpClientFactory,
         ILogger<PostGenerationService> logger)
     {
+        _clientProvider = clientProvider;
         _options = options.Value;
-        _httpClientFactory = httpClientFactory;
         _logger = logger;
     }
 
@@ -57,33 +59,37 @@ public class PostGenerationService : IPostGenerationService
 
     private async Task<string?> CallChatCompletionAsync(string systemPrompt, string userPrompt, int maxTokens, CancellationToken cancellationToken)
     {
-        if (string.IsNullOrEmpty(_options.Endpoint) || string.IsNullOrEmpty(_options.ApiKey))
+        var azureClient = _clientProvider.GetChatClient();
+        if (azureClient == null)
             return null;
 
-        var client = _httpClientFactory.CreateClient();
-        client.DefaultRequestHeaders.Add("api-key", _options.ApiKey);
-
-        var url = $"{_options.Endpoint.TrimEnd('/')}/openai/deployments/{Uri.EscapeDataString(_options.ChatDeploymentName)}/chat/completions?api-version=2024-08-01-preview";
-        var body = new
+        var chatClient = azureClient.GetChatClient(_options.ChatDeploymentName);
+        var messages = new ChatMessage[]
         {
-            messages = new[]
-            {
-                new { role = "system", content = systemPrompt },
-                new { role = "user", content = userPrompt },
-            },
-            max_tokens = maxTokens,
-            temperature = 0.7,
+            new SystemChatMessage(systemPrompt),
+            new UserChatMessage(userPrompt),
+        };
+        var completionOptions = new ChatCompletionOptions
+        {
+            MaxOutputTokenCount = maxTokens,
+            Temperature = 0.7f,
         };
 
-        var response = await client.PostAsJsonAsync(url, body, cancellationToken);
-        var responseBody = await response.Content.ReadAsStringAsync(cancellationToken);
-        if (!response.IsSuccessStatusCode)
-            throw new HttpRequestException($"Azure OpenAI returned {(int)response.StatusCode} {response.ReasonPhrase}. {responseBody}");
-
-        var json = JsonSerializer.Deserialize<JsonElement>(responseBody);
-        var choice = json.GetProperty("choices")[0];
-        var content = choice.GetProperty("message").GetProperty("content").GetString()?.Trim() ?? "";
-        return StripMarkdown(content);
+        try
+        {
+            var completion = await chatClient.CompleteChatAsync(messages, completionOptions, cancellationToken);
+            var content = completion.Value.Content;
+            if (content == null || content.Count == 0)
+                return null;
+            var result = string.Concat(content
+                .Where(p => p.Kind == ChatMessageContentPartKind.Text && p.Text != null)
+                .Select(p => p.Text));
+            return StripMarkdown(result.Trim());
+        }
+        catch (RequestFailedException ex)
+        {
+            throw new HttpRequestException($"Azure OpenAI returned {ex.Status} {ex.Message}. {ex.ErrorCode}", ex);
+        }
     }
 
     private static string StripMarkdown(string content)
