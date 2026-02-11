@@ -141,23 +141,7 @@ jobs:
       #     fi
 
       - name: Provision infrastructure
-        run: |
-          MAX_RETRIES=1
-          RETRY_COUNT=0
-          while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
-            if azd provision --no-prompt; then
-              echo "Provisioning succeeded"
-              exit 0
-            fi
-            RETRY_COUNT=$((RETRY_COUNT + 1))
-            if [ $RETRY_COUNT -lt $MAX_RETRIES ]; then
-              echo "Provisioning failed, retrying in 60 seconds (attempt $RETRY_COUNT/$MAX_RETRIES)..."
-              sleep 60
-            else
-              echo "Provisioning failed after $MAX_RETRIES attempts"
-              exit 1
-            fi
-          done
+        run: azd provision --no-prompt
 
       - name: Set API URL for frontend
         id: api_url

@@ -77,7 +77,7 @@ var acrName = '${baseName}acr${uniqueSuffix}'
 var containerAppEnvName = '${baseName}-env-${environmentName}'
 var apiAppName = '${baseName}-api-${environmentName}'
 var webAppName = '${baseName}-web-${environmentName}'
-var functionAppName = '${baseName}-func-${environmentName}'
+// var functionAppName = '${baseName}-func-${environmentName}'
 var storageName = toLower(replace('${baseName}${uniqueSuffix}', '-', ''))
 var logAnalyticsName = '${baseName}-logs-${environmentName}'
 // var openAIName = '${baseName}-openai-${environmentName}-${uniqueSuffix}' // Unused variable
@@ -380,50 +380,50 @@ resource webApp 'Microsoft.App/containerApps@2024-03-01' = if (!localDevOnly) {
   }
 }
 
-resource functionPlan 'Microsoft.Web/serverfarms@2024-04-01' = if (!localDevOnly) {
-  name: '${baseName}-plan-${environmentName}'
-  location: location
-  kind: 'functionapp'
-  sku: { tier: 'FlexConsumption', name: 'FC1' }
-  properties: { reserved: true }
-}
+// resource functionPlan 'Microsoft.Web/serverfarms@2024-04-01' = if (!localDevOnly) {
+//   name: '${baseName}-plan-${environmentName}'
+//   location: location
+//   kind: 'functionapp'
+//   sku: { tier: 'FlexConsumption', name: 'FC1' }
+//   properties: { reserved: true }
+// }
 
-resource functionApp 'Microsoft.Web/sites@2024-04-01' = if (!localDevOnly) {
-  name: functionAppName
-  location: location
-  kind: 'functionapp,linux'
-  identity: {
-    type: 'SystemAssigned'
-  }
-  properties: {
-    serverFarmId: functionPlan.id
-    httpsOnly: true
-    siteConfig: {
-      appSettings: [
-        { name: 'AzureWebJobsStorage', value: 'DefaultEndpointsProtocol=https;AccountName=${storage.name};EndpointSuffix=${environment().suffixes.storage};AccountKey=${storage.listKeys().keys[0].value}' }
-        { name: 'FUNCTIONS_EXTENSION_VERSION', value: '~4' }
-        { name: 'ConnectionStrings__DefaultConnection', value: 'Server=tcp:${sqlServer.properties.fullyQualifiedDomainName},1433;Initial Catalog=${sqlDatabaseName};Persist Security Info=False;User ID=${sqlAdminLogin};Password=${sqlAdminPassword};MultipleActiveResultSets=False;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;' }
-        { name: 'Mailgun__ApiKey', value: mailgunApiKey }
-        { name: 'Mailgun__Domain', value: mailgunDomain }
-        { name: 'Mailgun__FromAddress', value: mailgunFromAddress }
-        { name: 'Mailgun__FromName', value: mailgunFromName }
-      ]
-    }
-    functionAppConfig: {
-      scaleAndConcurrency: {
-        maximumInstanceCount: 100
-        instanceMemoryMB: 2048
-      }
-      runtime: { name: 'dotnet-isolated', version: '10.0' }
-      deployment: {
-        storage: {
-          type: 'blobContainer'
-          value: '${storage.properties.primaryEndpoints.blob}${deploymentStorageContainerName}'
-        }
-      }
-    }
-  }
-}
+// resource functionApp 'Microsoft.Web/sites@2024-04-01' = if (!localDevOnly) {
+//   name: functionAppName
+//   location: location
+//   kind: 'functionapp,linux'
+//   identity: {
+//     type: 'SystemAssigned'
+//   }
+//   properties: {
+//     serverFarmId: functionPlan.id
+//     httpsOnly: true
+//     siteConfig: {
+//       appSettings: [
+//         { name: 'AzureWebJobsStorage', value: 'DefaultEndpointsProtocol=https;AccountName=${storage.name};EndpointSuffix=${environment().suffixes.storage};AccountKey=${storage.listKeys().keys[0].value}' }
+//         { name: 'FUNCTIONS_EXTENSION_VERSION', value: '~4' }
+//         { name: 'ConnectionStrings__DefaultConnection', value: 'Server=tcp:${sqlServer.properties.fullyQualifiedDomainName},1433;Initial Catalog=${sqlDatabaseName};Persist Security Info=False;User ID=${sqlAdminLogin};Password=${sqlAdminPassword};MultipleActiveResultSets=False;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;' }
+//         { name: 'Mailgun__ApiKey', value: mailgunApiKey }
+//         { name: 'Mailgun__Domain', value: mailgunDomain }
+//         { name: 'Mailgun__FromAddress', value: mailgunFromAddress }
+//         { name: 'Mailgun__FromName', value: mailgunFromName }
+//       ]
+//     }
+//     functionAppConfig: {
+//       scaleAndConcurrency: {
+//         maximumInstanceCount: 100
+//         instanceMemoryMB: 2048
+//       }
+//       runtime: { name: 'dotnet-isolated', version: '10.0' }
+//       deployment: {
+//         storage: {
+//           type: 'blobContainer'
+//           value: '${storage.properties.primaryEndpoints.blob}${deploymentStorageContainerName}'
+//         }
+//       }
+//     }
+//   }
+// }
 
 // resource staticWebApp 'Microsoft.Web/staticSites@2022-09-01' = if (!localDevOnly) {
 //   name: staticWebAppName
@@ -443,7 +443,7 @@ output apiUrl string = !localDevOnly ? 'https://${apiApp.properties.configuratio
 output webAppName string = !localDevOnly ? webApp.name : ''
 output webAppFqdn string = !localDevOnly ? webApp.properties.configuration.ingress.fqdn : ''
 output webUrl string = !localDevOnly ? 'https://${webApp.properties.configuration.ingress.fqdn}' : ''
-output functionAppName string = !localDevOnly ? functionApp.name : ''
+// output functionAppName string = !localDevOnly ? functionApp.name : ''
 output openAIEndpoint string = localDevOnly ? openaiChatAccount.properties.endpoint : openaiProdChat.properties.endpoint
 output openAIImageEndpoint string = localDevOnly && deployImageModel ? openaiImageAccount.properties.endpoint : (!localDevOnly && deployImageModel ? openaiProdImage.properties.endpoint : '')
 output openAIImageAccountName string = localDevOnly && deployImageModel ? openaiImageAccount.name : (!localDevOnly && deployImageModel ? openaiProdImage.name : '')
