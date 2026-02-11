@@ -42,7 +42,6 @@ jobs:
           az group create --name ${{ env.RESOURCE_GROUP }} --location ${{ env.LOCATION }} --output none
 
       - name: run-what-if
-        depends-on: create-resource-group
         run: az deployment group what-if --resource-group ${{ env.RESOURCE_GROUP }} --template-file infra/main.bicep --verbose
 
       - name: Check required secrets
