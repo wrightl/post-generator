@@ -86,6 +86,7 @@ var openAIImageName = '${baseName}-openai-image-${environmentName}-${uniqueSuffi
 var sqlServerName = '${baseName}-sql-${environmentName}-${uniqueSuffix}'
 var sqlDatabaseName = 'postgenerator'
 var blobContainerName = 'post-images'
+var deploymentStorageContainerName = 'app-package-${baseName}-${environmentName}'
 // var staticWebAppName = '${baseName}-web-${environmentName}'
 
 resource logAnalytics 'Microsoft.OperationalInsights/workspaces@2022-10-01' = if (!localDevOnly) {
@@ -121,6 +122,11 @@ resource blobService 'Microsoft.Storage/storageAccounts/blobServices@2023-01-01'
 resource blobContainer 'Microsoft.Storage/storageAccounts/blobServices/containers@2023-01-01' = if (!localDevOnly) {
   parent: blobService
   name: blobContainerName
+}
+
+resource deploymentStorageContainer 'Microsoft.Storage/storageAccounts/blobServices/containers@2023-01-01' = if (!localDevOnly) {
+  parent: blobService
+  name: deploymentStorageContainerName
 }
 
 resource sqlServer 'Microsoft.Sql/servers@2022-05-01-preview' = if (!localDevOnly) {
@@ -400,6 +406,12 @@ resource functionApp 'Microsoft.Web/sites@2024-04-01' = if (!localDevOnly) {
         instanceMemoryMB: 2048
       }
       runtime: { name: 'dotnet-isolated', version: '10.0' }
+      deployment: {
+        storage: {
+          type: 'blobContainer'
+          value: '${storage.properties.primaryEndpoints.blob}${deploymentStorageContainerName}'
+        }
+      }
     }
   }
 }
