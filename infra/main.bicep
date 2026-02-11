@@ -385,6 +385,9 @@ resource functionApp 'Microsoft.Web/sites@2024-04-01' = if (!localDevOnly) {
   name: functionAppName
   location: location
   kind: 'functionapp,linux'
+  identity: {
+    type: 'SystemAssigned'
+  }
   properties: {
     serverFarmId: functionPlan.id
     httpsOnly: true
@@ -410,9 +413,23 @@ resource functionApp 'Microsoft.Web/sites@2024-04-01' = if (!localDevOnly) {
         storage: {
           type: 'blobContainer'
           value: '${storage.properties.primaryEndpoints.blob}${deploymentStorageContainerName}'
+          authentication: {
+            type: 'SystemAssignedIdentity'
+          }
         }
       }
     }
+  }
+}
+
+// Grant Function App managed identity access to storage account for deployment
+resource functionAppStorageRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (!localDevOnly) {
+  name: guid(resourceGroup().id, functionApp.id, 'Storage Blob Data Contributor')
+  scope: storage
+  properties: {
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'ba92f5b4-2d11-453d-a403-e96b0029c9fe') // Storage Blob Data Contributor
+    principalId: functionApp.identity.principalId
+    principalType: 'ServicePrincipal'
   }
 }
 
