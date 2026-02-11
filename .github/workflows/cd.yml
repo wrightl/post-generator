@@ -26,7 +26,16 @@ jobs:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
       - name: Install Azure Developer CLI
-        uses: Azure/setup-azd@v2
+        uses: Azure/setup-azd@v2.2.1
+
+      - name: Azure Developer CLI login
+        env:
+          AZURE_CREDENTIALS: ${{ secrets.AZURE_CREDENTIALS }}
+        run: |
+          clientId=$(echo "$AZURE_CREDENTIALS" | jq -r '.clientId')
+          clientSecret=$(echo "$AZURE_CREDENTIALS" | jq -r '.clientSecret')
+          tenantId=$(echo "$AZURE_CREDENTIALS" | jq -r '.tenantId')
+          azd auth login --client-id "$clientId" --tenant-id "$tenantId" --client-secret "$clientSecret" --no-prompt
 
       - name: Create resource group
         run: |
@@ -85,10 +94,10 @@ jobs:
     needs: deploy
     if: needs.deploy.outputs.api_url != ''
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6.0.2
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6.2.0
         with:
           node-version: '20'
           cache: 'npm'
