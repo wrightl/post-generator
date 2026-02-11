@@ -180,7 +180,7 @@ resource openaiChatAccountDeployment 'Microsoft.CognitiveServices/accounts/deplo
 
 resource openaiImageAccount 'Microsoft.CognitiveServices/accounts@2024-10-01' = if (localDevOnly && deployImageModel) {
   name: openAIImageName
-  location: 'eastus'
+  location: openAIImageLocation
   kind: 'OpenAI'
   sku: { name: 'S0' }
   properties: {}
