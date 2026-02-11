@@ -6,6 +6,10 @@ services:
     project: src/Api
     language: docker
     host: containerapp
+  web:
+    project: src/Web
+    language: docker
+    host: containerapp
   function:
     project: src/Function
     language: dotnet

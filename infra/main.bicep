@@ -31,12 +31,30 @@ param sqlAdminPassword string = ''
 @description('Initial API container image (replaced by CD)')
 param apiImage string = 'mcr.microsoft.com/azuredocs/containerapps-helloworld:latest'
 
+@description('Initial Web container image (replaced by CD)')
+param webImage string = 'mcr.microsoft.com/azuredocs/containerapps-helloworld:latest'
+
 @description('Firebase project ID. From FIREBASE_PROJECT_ID.')
 param firebaseProjectId string = ''
 
 @secure()
 @description('Firebase service account JSON (base64). From FIREBASE_CREDENTIAL_JSON_BASE64.')
 param firebaseCredentialJsonBase64 string = ''
+
+@description('Firebase API key. From NEXT_PUBLIC_FIREBASE_API_KEY.')
+param firebaseApiKey string = ''
+
+@description('Firebase auth domain. From NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN.')
+param firebaseAuthDomain string = ''
+
+@description('Firebase storage bucket. From NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET.')
+param firebaseStorageBucket string = ''
+
+@description('Firebase messaging sender ID. From NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID.')
+param firebaseMessagingSenderId string = ''
+
+@description('Firebase app ID. From NEXT_PUBLIC_FIREBASE_APP_ID.')
+param firebaseAppId string = ''
 
 @description('CORS allowed origins (comma-separated). From CORS_ORIGINS.')
 param corsOrigins string = ''
@@ -58,6 +76,7 @@ var uniqueSuffix = uniqueString(resourceGroup().id, baseName)
 var acrName = '${baseName}acr${uniqueSuffix}'
 var containerAppEnvName = '${baseName}-env-${environmentName}'
 var apiAppName = '${baseName}-api-${environmentName}'
+var webAppName = '${baseName}-web-${environmentName}'
 var functionAppName = '${baseName}-func-${environmentName}'
 var storageName = toLower(replace('${baseName}${uniqueSuffix}', '-', ''))
 var logAnalyticsName = '${baseName}-logs-${environmentName}'
@@ -246,8 +265,8 @@ resource apiApp 'Microsoft.App/containerApps@2024-03-01' = if (!localDevOnly) {
         [
           { name: 'acr-password', value: acr.listCredentials().passwords[0].value }
           { name: 'openai-api-key', value: openaiProdChat.listKeys().key1 }
-          { name: 'sql-connection-string', value: concat('Server=tcp:', sqlServer.properties.fullyQualifiedDomainName, ',1433;Initial Catalog=', sqlDatabaseName, ';Persist Security Info=False;User ID=', sqlAdminLogin, ';Password=', sqlAdminPassword, ';MultipleActiveResultSets=False;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;') }
-          { name: 'blob-connection-string', value: concat('DefaultEndpointsProtocol=https;AccountName=', storage.name, ';EndpointSuffix=', environment().suffixes.storage, ';AccountKey=', storage.listKeys().keys[0].value) }
+          { name: 'sql-connection-string', value: 'Server=tcp:${sqlServer.properties.fullyQualifiedDomainName},1433;Initial Catalog=${sqlDatabaseName};Persist Security Info=False;User ID=${sqlAdminLogin};Password=${sqlAdminPassword};MultipleActiveResultSets=False;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;' }
+          { name: 'blob-connection-string', value: 'DefaultEndpointsProtocol=https;AccountName=${storage.name};EndpointSuffix=${environment().suffixes.storage};AccountKey=${storage.listKeys().keys[0].value}' }
         ],
         deployImageModel ? [{ name: 'openai-image-api-key', value: openaiProdImage.listKeys().key1 }] : [],
         firebaseCredentialJsonBase64 != '' ? [{ name: 'firebase-credential-base64', value: firebaseCredentialJsonBase64 }] : [],
@@ -297,6 +316,57 @@ resource apiApp 'Microsoft.App/containerApps@2024-03-01' = if (!localDevOnly) {
   }
 }
 
+resource webApp 'Microsoft.App/containerApps@2024-03-01' = if (!localDevOnly) {
+  name: webAppName
+  location: location
+  properties: {
+    managedEnvironmentId: containerAppEnv.id
+    configuration: {
+      ingress: {
+        external: true
+        targetPort: 3000
+        transport: 'auto'
+        allowInsecure: false
+      }
+      registries: [{
+        server: acr.properties.loginServer
+        username: acr.listCredentials().username
+        passwordSecretRef: 'acr-password'
+      }]
+      secrets: [
+        { name: 'acr-password', value: acr.listCredentials().passwords[0].value }
+      ]
+    }
+    template: {
+      containers: [{
+        name: 'web'
+        image: webImage
+        resources: { cpu: json('0.5'), memory: '1Gi' }
+        env: [
+          { name: 'NEXT_PUBLIC_API_URL', value: 'https://${apiApp.properties.configuration.ingress.fqdn}' },
+          { name: 'NEXT_PUBLIC_FIREBASE_API_KEY', value: firebaseApiKey },
+          { name: 'NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN', value: firebaseAuthDomain },
+          { name: 'NEXT_PUBLIC_FIREBASE_PROJECT_ID', value: firebaseProjectId },
+          { name: 'NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET', value: firebaseStorageBucket },
+          { name: 'NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID', value: firebaseMessagingSenderId },
+          { name: 'NEXT_PUBLIC_FIREBASE_APP_ID', value: firebaseAppId }
+        ]
+      }]
+      scale: {
+        minReplicas: 0
+        maxReplicas: 3
+        rules: [{
+          name: 'http'
+          http: {
+            metadata: { concurrentRequests: '10' }
+            auth: []
+          }
+        }]
+      }
+    }
+  }
+}
+
 resource functionPlan 'Microsoft.Web/serverfarms@2024-04-01' = if (!localDevOnly) {
   name: '${baseName}-plan-${environmentName}'
   location: location
@@ -314,10 +384,10 @@ resource functionApp 'Microsoft.Web/sites@2024-04-01' = if (!localDevOnly) {
     httpsOnly: true
     siteConfig: {
       appSettings: [
-        { name: 'AzureWebJobsStorage', value: concat('DefaultEndpointsProtocol=https;AccountName=', storage.name, ';EndpointSuffix=', environment().suffixes.storage, ';AccountKey=', storage.listKeys().keys[0].value) } 
+        { name: 'AzureWebJobsStorage', value: 'DefaultEndpointsProtocol=https;AccountName=${storage.name};EndpointSuffix=${environment().suffixes.storage};AccountKey=${storage.listKeys().keys[0].value}' } 
         { name: 'FUNCTIONS_EXTENSION_VERSION', value: '~4' } 
         { name: 'FUNCTIONS_WORKER_RUNTIME', value: 'dotnet-isolated' } 
-        { name: 'ConnectionStrings__DefaultConnection', value: concat('Server=tcp:', sqlServer.properties.fullyQualifiedDomainName, ',1433;Initial Catalog=', sqlDatabaseName, ';Persist Security Info=False;User ID=', sqlAdminLogin, ';Password=', sqlAdminPassword, ';MultipleActiveResultSets=False;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;') }
+        { name: 'ConnectionStrings__DefaultConnection', value: 'Server=tcp:${sqlServer.properties.fullyQualifiedDomainName},1433;Initial Catalog=${sqlDatabaseName};Persist Security Info=False;User ID=${sqlAdminLogin};Password=${sqlAdminPassword};MultipleActiveResultSets=False;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;' }
         { name: 'Mailgun__ApiKey', value: mailgunApiKey }
         { name: 'Mailgun__Domain', value: mailgunDomain }
         { name: 'Mailgun__FromAddress', value: mailgunFromAddress }
@@ -349,6 +419,9 @@ output acrName string = !localDevOnly ? acr.name : ''
 output apiAppName string = !localDevOnly ? apiApp.name : ''
 output apiAppFqdn string = !localDevOnly ? apiApp.properties.configuration.ingress.fqdn : ''
 output apiUrl string = !localDevOnly ? 'https://${apiApp.properties.configuration.ingress.fqdn}' : ''
+output webAppName string = !localDevOnly ? webApp.name : ''
+output webAppFqdn string = !localDevOnly ? webApp.properties.configuration.ingress.fqdn : ''
+output webUrl string = !localDevOnly ? 'https://${webApp.properties.configuration.ingress.fqdn}' : ''
 output functionAppName string = !localDevOnly ? functionApp.name : ''
 output openAIEndpoint string = localDevOnly ? openaiChatAccount.properties.endpoint : openaiProdChat.properties.endpoint
 output openAIImageEndpoint string = localDevOnly && deployImageModel ? openaiImageAccount.properties.endpoint : (!localDevOnly && deployImageModel ? openaiProdImage.properties.endpoint : '')
