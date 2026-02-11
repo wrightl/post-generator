@@ -72,8 +72,8 @@ jobs:
           azd env set FIREBASE_MESSAGING_SENDER_ID "${{ vars.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID }}"
           azd env set FIREBASE_APP_ID "${{ vars.NEXT_PUBLIC_FIREBASE_APP_ID }}"
 
-      - name: Run what-if
-        run: az deployment group what-if --resource-group ${{ env.RESOURCE_GROUP }} --template-file infra/main.bicep
+      # - name: Run what-if
+      #   run: az deployment group what-if --resource-group ${{ env.RESOURCE_GROUP }} --template-file infra/main.bicep
 
       # - name: Wait for in-progress deployments
       #   run: |
