@@ -61,7 +61,7 @@ var apiAppName = '${baseName}-api-${environmentName}'
 var functionAppName = '${baseName}-func-${environmentName}'
 var storageName = toLower(replace('${baseName}${uniqueSuffix}', '-', ''))
 var logAnalyticsName = '${baseName}-logs-${environmentName}'
-var openAIName = '${baseName}-openai-${environmentName}-${uniqueSuffix}'
+// var openAIName = '${baseName}-openai-${environmentName}-${uniqueSuffix}' // Unused variable
 var openAIChatName = '${baseName}-openai-chat-${environmentName}-${uniqueSuffix}'
 var openAIImageName = '${baseName}-openai-image-${environmentName}-${uniqueSuffix}'
 var sqlServerName = '${baseName}-sql-${environmentName}-${uniqueSuffix}'
@@ -244,9 +244,9 @@ resource apiApp 'Microsoft.App/containerApps@2024-03-01' = if (!localDevOnly) {
       }]
       secrets: concat(
         [
-          { name: 'acr-password', value: acr.listCredentials().passwords[0].value },
-          { name: 'openai-api-key', value: openaiProdChat.listKeys().key1 },
-          { name: 'sql-connection-string', value: concat('Server=tcp:', sqlServer.properties.fullyQualifiedDomainName, ',1433;Initial Catalog=', sqlDatabaseName, ';Persist Security Info=False;User ID=', sqlAdminLogin, ';Password=', sqlAdminPassword, ';MultipleActiveResultSets=False;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;') },
+          { name: 'acr-password', value: acr.listCredentials().passwords[0].value }
+          { name: 'openai-api-key', value: openaiProdChat.listKeys().key1 }
+          { name: 'sql-connection-string', value: concat('Server=tcp:', sqlServer.properties.fullyQualifiedDomainName, ',1433;Initial Catalog=', sqlDatabaseName, ';Persist Security Info=False;User ID=', sqlAdminLogin, ';Password=', sqlAdminPassword, ';MultipleActiveResultSets=False;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;') }
           { name: 'blob-connection-string', value: concat('DefaultEndpointsProtocol=https;AccountName=', storage.name, ';EndpointSuffix=', environment().suffixes.storage, ';AccountKey=', storage.listKeys().keys[0].value) }
         ],
         deployImageModel ? [{ name: 'openai-image-api-key', value: openaiProdImage.listKeys().key1 }] : [],
@@ -261,17 +261,17 @@ resource apiApp 'Microsoft.App/containerApps@2024-03-01' = if (!localDevOnly) {
         resources: { cpu: json('0.5'), memory: '1Gi' }
         env: concat(
           [
-            { name: 'AzureOpenAI__Endpoint', value: openaiProdChat.properties.endpoint },
-            { name: 'AzureOpenAI__ApiKey', secretRef: 'openai-api-key' },
-            { name: 'AzureOpenAI__ChatDeploymentName', value: 'gpt-4o' },
-            { name: 'AzureOpenAI__ImageDeploymentName', value: 'dall-e-3' },
-            { name: 'ConnectionStrings__DefaultConnection', secretRef: 'sql-connection-string' },
-            { name: 'BlobStorage__ConnectionString', secretRef: 'blob-connection-string' },
-            { name: 'BlobStorage__ContainerName', value: blobContainerName },
-            { name: 'Firebase__ProjectId', value: firebaseProjectId },
-            { name: 'Cors__Origins', value: corsOrigins },
-            { name: 'Mailgun__Domain', value: mailgunDomain },
-            { name: 'Mailgun__FromAddress', value: mailgunFromAddress },
+            { name: 'AzureOpenAI__Endpoint', value: openaiProdChat.properties.endpoint }
+            { name: 'AzureOpenAI__ApiKey', secretRef: 'openai-api-key' }
+            { name: 'AzureOpenAI__ChatDeploymentName', value: 'gpt-4o' }
+            { name: 'AzureOpenAI__ImageDeploymentName', value: 'dall-e-3' }
+            { name: 'ConnectionStrings__DefaultConnection', secretRef: 'sql-connection-string' }
+            { name: 'BlobStorage__ConnectionString', secretRef: 'blob-connection-string' }
+            { name: 'BlobStorage__ContainerName', value: blobContainerName }
+            { name: 'Firebase__ProjectId', value: firebaseProjectId }
+            { name: 'Cors__Origins', value: corsOrigins }
+            { name: 'Mailgun__Domain', value: mailgunDomain }
+            { name: 'Mailgun__FromAddress', value: mailgunFromAddress }
             { name: 'Mailgun__FromName', value: mailgunFromName }
           ],
           deployImageModel ? [
@@ -314,13 +314,13 @@ resource functionApp 'Microsoft.Web/sites@2024-04-01' = if (!localDevOnly) {
     httpsOnly: true
     siteConfig: {
       appSettings: [
-        { name: 'AzureWebJobsStorage', value: concat('DefaultEndpointsProtocol=https;AccountName=', storage.name, ';EndpointSuffix=', environment().suffixes.storage, ';AccountKey=', storage.listKeys().keys[0].value) },
-        { name: 'FUNCTIONS_EXTENSION_VERSION', value: '~4' },
-        { name: 'FUNCTIONS_WORKER_RUNTIME', value: 'dotnet-isolated' },
+        { name: 'AzureWebJobsStorage', value: concat('DefaultEndpointsProtocol=https;AccountName=', storage.name, ';EndpointSuffix=', environment().suffixes.storage, ';AccountKey=', storage.listKeys().keys[0].value) } 
+        { name: 'FUNCTIONS_EXTENSION_VERSION', value: '~4' } 
+        { name: 'FUNCTIONS_WORKER_RUNTIME', value: 'dotnet-isolated' } 
         { name: 'ConnectionStrings__DefaultConnection', value: concat('Server=tcp:', sqlServer.properties.fullyQualifiedDomainName, ',1433;Initial Catalog=', sqlDatabaseName, ';Persist Security Info=False;User ID=', sqlAdminLogin, ';Password=', sqlAdminPassword, ';MultipleActiveResultSets=False;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;') },
-        { name: 'Mailgun__ApiKey', value: mailgunApiKey },
-        { name: 'Mailgun__Domain', value: mailgunDomain },
-        { name: 'Mailgun__FromAddress', value: mailgunFromAddress },
+        { name: 'Mailgun__ApiKey', value: mailgunApiKey }
+        { name: 'Mailgun__Domain', value: mailgunDomain }
+        { name: 'Mailgun__FromAddress', value: mailgunFromAddress }
         { name: 'Mailgun__FromName', value: mailgunFromName }
       ]
     }
