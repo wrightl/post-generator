@@ -394,9 +394,8 @@ resource functionApp 'Microsoft.Web/sites@2024-04-01' = if (!localDevOnly) {
     httpsOnly: true
     siteConfig: {
       appSettings: [
-        { name: 'AzureWebJobsStorage', value: 'DefaultEndpointsProtocol=https;AccountName=${storage.name};EndpointSuffix=${environment().suffixes.storage};AccountKey=${storage.listKeys().keys[0].value}' } 
-        { name: 'FUNCTIONS_EXTENSION_VERSION', value: '~4' } 
-        { name: 'FUNCTIONS_WORKER_RUNTIME', value: 'dotnet-isolated' } 
+        { name: 'AzureWebJobsStorage', value: 'DefaultEndpointsProtocol=https;AccountName=${storage.name};EndpointSuffix=${environment().suffixes.storage};AccountKey=${storage.listKeys().keys[0].value}' }
+        { name: 'FUNCTIONS_EXTENSION_VERSION', value: '~4' }
         { name: 'ConnectionStrings__DefaultConnection', value: 'Server=tcp:${sqlServer.properties.fullyQualifiedDomainName},1433;Initial Catalog=${sqlDatabaseName};Persist Security Info=False;User ID=${sqlAdminLogin};Password=${sqlAdminPassword};MultipleActiveResultSets=False;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;' }
         { name: 'Mailgun__ApiKey', value: mailgunApiKey }
         { name: 'Mailgun__Domain', value: mailgunDomain }
