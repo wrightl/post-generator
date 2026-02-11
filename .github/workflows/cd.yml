@@ -37,9 +37,20 @@ jobs:
           tenantId=$(echo "$AZURE_CREDENTIALS" | jq -r '.tenantId')
           azd auth login --client-id "$clientId" --tenant-id "$tenantId" --client-secret "$clientSecret" --no-prompt
 
-      - name: Create resource group
+      - name: create-resource-group
         run: |
           az group create --name ${{ env.RESOURCE_GROUP }} --location ${{ env.LOCATION }} --output none
+
+      - name: run-what-if
+        depends-on: create-resource-group
+        run: az deployment group what-if --resource-group ${{ env.RESOURCE_GROUP }} --template-file infra/main.bicep --verbose
+
+      - name: Check required secrets
+        run: |
+          if [ -z "${{ secrets.SQL_ADMIN_PASSWORD }}" ]; then
+            echo "::error::SQL_ADMIN_PASSWORD secret is not set. Add it in repository secrets to deploy infrastructure."
+            exit 1
+          fi
 
       - name: Configure azd environment
         run: |
@@ -71,9 +82,6 @@ jobs:
           azd env set FIREBASE_STORAGE_BUCKET "${{ vars.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET }}"
           azd env set FIREBASE_MESSAGING_SENDER_ID "${{ vars.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID }}"
           azd env set FIREBASE_APP_ID "${{ vars.NEXT_PUBLIC_FIREBASE_APP_ID }}"
-
-      - name: Run what-if
-        run: az deployment group what-if --resource-group ${{ env.RESOURCE_GROUP }} --template-file infra/main.bicep --verbose
 
       # - name: Wait for in-progress deployments
       #   run: |
@@ -144,7 +152,21 @@ jobs:
       #     fi
 
       - name: Provision infrastructure
+        id: provision
         run: azd provision --no-prompt
+
+      - name: Show deployment error details
+        if: failure() && steps.provision.outcome == 'failure'
+        run: |
+          echo "=== Failed deployment error (inner errors) ==="
+          FAILED_NAME=$(az deployment group list --resource-group ${{ env.RESOURCE_GROUP }} --query "[?properties.provisioningState=='Failed'].name | [0]" -o tsv 2>/dev/null || true)
+          if [ -z "$FAILED_NAME" ]; then
+            FAILED_NAME="main"
+          fi
+          echo "Deployment name: $FAILED_NAME"
+          az deployment group show --resource-group ${{ env.RESOURCE_GROUP }} --name "$FAILED_NAME" --query "properties.error" -o json 2>/dev/null || true
+          echo "=== Deployment operations (per-resource errors) ==="
+          az deployment operation group list --resource-group ${{ env.RESOURCE_GROUP }} --name "$FAILED_NAME" --query "[?properties.provisioningState.state=='Failed'].{resource:properties.targetResource.resourceName, error:properties.statusMessage.error}" -o json 2>/dev/null || true
 
       - name: Set API URL for frontend
         id: api_url
