@@ -86,7 +86,7 @@ var openAIImageName = '${baseName}-openai-image-${environmentName}-${uniqueSuffi
 var sqlServerName = '${baseName}-sql-${environmentName}-${uniqueSuffix}'
 var sqlDatabaseName = 'postgenerator'
 var blobContainerName = 'post-images'
-var staticWebAppName = '${baseName}-web-${environmentName}'
+// var staticWebAppName = '${baseName}-web-${environmentName}'
 
 resource logAnalytics 'Microsoft.OperationalInsights/workspaces@2022-10-01' = if (!localDevOnly) {
   name: logAnalyticsName
@@ -428,5 +428,5 @@ output openAIImageEndpoint string = localDevOnly && deployImageModel ? openaiIma
 output openAIImageAccountName string = localDevOnly && deployImageModel ? openaiImageAccount.name : (!localDevOnly && deployImageModel ? openaiProdImage.name : '')
 output openAIChatAccountName string = localDevOnly ? openaiChatAccount.name : openaiProdChat.name
 output storageAccountName string = !localDevOnly ? storage.name : ''
-output staticWebAppName string = !localDevOnly ? staticWebApp.name : ''
+// output staticWebAppName string = !localDevOnly ? staticWebApp.name : ''
 output resourceGroupName string = resourceGroup().name
