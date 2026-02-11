@@ -419,10 +419,6 @@ resource functionApp 'Microsoft.Web/sites@2024-04-01' = if (!localDevOnly) {
         storage: {
           type: 'blobContainer'
           value: '${storage.properties.primaryEndpoints.blob}${deploymentStorageContainerName}'
-          authentication: {
-            type: 'StorageAccountConnectionString'
-            storageAccountConnectionStringName: 'AzureWebJobsStorage'
-          }
         }
       }
     }
