@@ -209,7 +209,6 @@ resource openaiProdChat 'Microsoft.CognitiveServices/accounts@2024-10-01' = if (
 resource openaiProdChatDeployment 'Microsoft.CognitiveServices/accounts/deployments@2023-05-01' = if (!localDevOnly) {
   parent: openaiProdChat
   name: 'gpt-4o'
-  dependsOn: [openaiProdChat]
   sku: { name: 'GlobalStandard', capacity: 10 }
   properties: {
     model: { name: 'gpt-4o', format: 'OpenAI' }
@@ -229,7 +228,6 @@ resource openaiProdImage 'Microsoft.CognitiveServices/accounts@2024-10-01' = if 
 resource openaiProdImageDeployment 'Microsoft.CognitiveServices/accounts/deployments@2023-05-01' = if (!localDevOnly && deployImageModel) {
   parent: openaiProdImage
   name: 'dall-e-3'
-  dependsOn: [openaiProdImage]
   sku: { name: 'Standard', capacity: 1 }
   properties: {
     model: { name: 'dall-e-3', format: 'OpenAI' }
@@ -255,10 +253,6 @@ resource containerAppEnv 'Microsoft.App/managedEnvironments@2024-03-01' = if (!l
 resource apiApp 'Microsoft.App/containerApps@2024-03-01' = if (!localDevOnly) {
   name: apiAppName
   location: location
-  // dependsOn: [
-  //   openaiProdChat
-  //   openaiProdChatDeployment
-  // ]
   properties: {
     managedEnvironmentId: containerAppEnv.id
     configuration: {
@@ -419,6 +413,10 @@ resource webApp 'Microsoft.App/containerApps@2024-03-01' = if (!localDevOnly) {
 //         storage: {
 //           type: 'blobContainer'
 //           value: '${storage.properties.primaryEndpoints.blob}${deploymentStorageContainerName}'
+//           authentication: {
+//             type: 'StorageAccountConnectionString'
+//             storageAccountConnectionStringName: 'AzureWebJobsStorage'
+//           }
 //         }
 //       }
 //     }
