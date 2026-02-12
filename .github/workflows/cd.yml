@@ -154,11 +154,16 @@ jobs:
           DEPLOYMENT_NAME=$(az deployment group list --resource-group ${{ env.RESOURCE_GROUP }} --query "[0].name" -o tsv 2>/dev/null) || true
           if [ -n "$DEPLOYMENT_NAME" ]; then
             ACR_LOGIN_SERVER=$(az deployment group show --resource-group ${{ env.RESOURCE_GROUP }} --name "$DEPLOYMENT_NAME" --query "properties.outputs.acrLoginServer.value" -o tsv 2>/dev/null) || true
+            ACR_NAME=$(az deployment group show --resource-group ${{ env.RESOURCE_GROUP }} --name "$DEPLOYMENT_NAME" --query "properties.outputs.acrName.value" -o tsv 2>/dev/null) || true
+            WEB_APP_NAME=$(az deployment group show --resource-group ${{ env.RESOURCE_GROUP }} --name "$DEPLOYMENT_NAME" --query "properties.outputs.webAppName.value" -o tsv 2>/dev/null) || true
             if [ -n "$ACR_LOGIN_SERVER" ]; then
               azd env set AZURE_CONTAINER_REGISTRY_ENDPOINT "$ACR_LOGIN_SERVER"
+              echo "acr_login_server=$ACR_LOGIN_SERVER" >> $GITHUB_OUTPUT
             fi
             API_URL=$(az deployment group show --resource-group ${{ env.RESOURCE_GROUP }} --name "$DEPLOYMENT_NAME" --query "properties.outputs.apiUrl.value" -o tsv 2>/dev/null) || true
             WEB_URL=$(az deployment group show --resource-group ${{ env.RESOURCE_GROUP }} --name "$DEPLOYMENT_NAME" --query "properties.outputs.webUrl.value" -o tsv 2>/dev/null) || true
+            echo "acr_name=$ACR_NAME" >> $GITHUB_OUTPUT
+            echo "web_app_name=$WEB_APP_NAME" >> $GITHUB_OUTPUT
           fi
           if [ -z "$API_URL" ]; then
             FQDN=$(az containerapp show --name postgen-api-${{ env.AZURE_ENV_NAME }} --resource-group ${{ env.RESOURCE_GROUP }} --query "properties.configuration.ingress.fqdn" -o tsv 2>/dev/null) || true
@@ -167,6 +172,13 @@ jobs:
           if [ -z "$WEB_URL" ]; then
             WEB_FQDN=$(az containerapp show --name postgen-web-${{ env.AZURE_ENV_NAME }} --resource-group ${{ env.RESOURCE_GROUP }} --query "properties.configuration.ingress.fqdn" -o tsv 2>/dev/null) || true
             [ -n "$WEB_FQDN" ] && WEB_URL="https://$WEB_FQDN"
+          fi
+          if [ -z "$WEB_APP_NAME" ]; then
+            echo "web_app_name=postgen-web-${{ env.AZURE_ENV_NAME }}" >> $GITHUB_OUTPUT
+          fi
+          if [ -z "$ACR_NAME" ] && [ -n "$ACR_LOGIN_SERVER" ]; then
+            ACR_NAME="${ACR_LOGIN_SERVER%%.*}"
+            echo "acr_name=$ACR_NAME" >> $GITHUB_OUTPUT
           fi
           if [ -n "$API_URL" ]; then
             azd env set NEXT_PUBLIC_API_URL "$API_URL"
@@ -178,3 +190,39 @@ jobs:
 
       - name: Deploy application
         run: azd deploy --no-prompt
+
+      # Next.js bakes NEXT_PUBLIC_* into the client bundle at build time; azd does not pass env as Docker build args.
+      # Rebuild the Web image with Firebase (and API URL) build args and update the container app.
+      - name: Build and push Web image with Firebase config
+        env:
+          NEXT_PUBLIC_API_URL: ${{ steps.api_url.outputs.api_url }}
+          NEXT_PUBLIC_FIREBASE_API_KEY: ${{ vars.NEXT_PUBLIC_FIREBASE_API_KEY }}
+          NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: ${{ vars.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN }}
+          NEXT_PUBLIC_FIREBASE_PROJECT_ID: ${{ vars.FIREBASE_PROJECT_ID }}
+          NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: ${{ vars.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET }}
+          NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: ${{ vars.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID }}
+          NEXT_PUBLIC_FIREBASE_APP_ID: ${{ vars.NEXT_PUBLIC_FIREBASE_APP_ID }}
+        run: |
+          ACR_NAME="${{ steps.api_url.outputs.acr_name }}"
+          WEB_APP_NAME="${{ steps.api_url.outputs.web_app_name }}"
+          ACR_LOGIN_SERVER="${{ steps.api_url.outputs.acr_login_server }}"
+          if [ -z "$ACR_NAME" ] || [ -z "$WEB_APP_NAME" ] || [ -z "$ACR_LOGIN_SERVER" ]; then
+            echo "Skipping Web image rebuild: acr_name, web_app_name or acr_login_server not set"
+            exit 0
+          fi
+          az acr login --name "$ACR_NAME"
+          IMAGE="${ACR_LOGIN_SERVER}/postgen-web:${GITHUB_SHA}"
+          docker build -f src/Web/Dockerfile \
+            --build-arg NEXT_PUBLIC_API_URL="$NEXT_PUBLIC_API_URL" \
+            --build-arg NEXT_PUBLIC_FIREBASE_API_KEY="$NEXT_PUBLIC_FIREBASE_API_KEY" \
+            --build-arg NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN="$NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN" \
+            --build-arg NEXT_PUBLIC_FIREBASE_PROJECT_ID="$NEXT_PUBLIC_FIREBASE_PROJECT_ID" \
+            --build-arg NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET="$NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET" \
+            --build-arg NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID="$NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID" \
+            --build-arg NEXT_PUBLIC_FIREBASE_APP_ID="$NEXT_PUBLIC_FIREBASE_APP_ID" \
+            -t "$IMAGE" src/Web
+          docker push "$IMAGE"
+          az containerapp update \
+            --name "$WEB_APP_NAME" \
+            --resource-group ${{ env.RESOURCE_GROUP }} \
+            --image "$IMAGE"
