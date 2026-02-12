@@ -79,7 +79,7 @@ var acrName = '${baseName}acr${uniqueSuffix}'
 var containerAppEnvName = '${baseName}-env-${environmentName}'
 var apiAppName = '${baseName}-api-${environmentName}'
 var webAppName = '${baseName}-web-${environmentName}'
-// var functionAppName = '${baseName}-func-${environmentName}'
+var functionAppName = '${baseName}-func-${environmentName}'
 var storageName = toLower(replace('${baseName}${uniqueSuffix}', '-', ''))
 var logAnalyticsName = '${baseName}-logs-${environmentName}'
 // var openAIName = '${baseName}-openai-${environmentName}-${uniqueSuffix}' // Unused variable
@@ -89,7 +89,6 @@ var sqlServerName = '${baseName}-sql-${environmentName}-${uniqueSuffix}'
 var sqlDatabaseName = 'postgenerator'
 var blobContainerName = 'post-images'
 var deploymentStorageContainerName = 'app-package-${baseName}-${environmentName}'
-// var staticWebAppName = '${baseName}-web-${environmentName}'
 
 resource logAnalytics 'Microsoft.OperationalInsights/workspaces@2022-10-01' = if (!localDevOnly) {
   name: logAnalyticsName
