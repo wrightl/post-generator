@@ -154,42 +154,29 @@ jobs:
         id: provision
         run: azd provision --no-prompt
 
-      - name: Show deployment error details
-        if: always() && steps.provision.outcome == 'failure'
-        run: |
-          echo "=== Failed deployment error (inner errors) ==="
-          FAILED_NAME=$(az deployment group list --resource-group ${{ env.RESOURCE_GROUP }} --query "[?properties.provisioningState=='Failed'].name | [0]" -o tsv 2>/dev/null || true)
-          if [ -z "$FAILED_NAME" ]; then
-            FAILED_NAME="main"
-          fi
-          echo "Deployment name: $FAILED_NAME"
-          az deployment group show --resource-group ${{ env.RESOURCE_GROUP }} --name "$FAILED_NAME" --query "properties.error" -o json 2>/dev/null || true
-          echo "=== Deployment operations (per-resource errors) ==="
-          az deployment operation group list --resource-group ${{ env.RESOURCE_GROUP }} --name "$FAILED_NAME" --query "[?properties.provisioningState.state=='Failed'].{resource:properties.targetResource.resourceName, error:properties.statusMessage.error}" -o json 2>/dev/null || true
-
-      - name: Set API URL for frontend
-        id: api_url
-        run: |
-          DEPLOYMENT_NAME=$(az deployment group list --resource-group ${{ env.RESOURCE_GROUP }} --query "[0].name" -o tsv 2>/dev/null) || true
-          if [ -n "$DEPLOYMENT_NAME" ]; then
-            API_URL=$(az deployment group show --resource-group ${{ env.RESOURCE_GROUP }} --name "$DEPLOYMENT_NAME" --query "properties.outputs.apiUrl.value" -o tsv 2>/dev/null) || true
-            WEB_URL=$(az deployment group show --resource-group ${{ env.RESOURCE_GROUP }} --name "$DEPLOYMENT_NAME" --query "properties.outputs.webUrl.value" -o tsv 2>/dev/null) || true
-          fi
-          if [ -z "$API_URL" ]; then
-            FQDN=$(az containerapp show --name postgen-api-${{ env.AZURE_ENV_NAME }} --resource-group ${{ env.RESOURCE_GROUP }} --query "properties.configuration.ingress.fqdn" -o tsv 2>/dev/null) || true
-            [ -n "$FQDN" ] && API_URL="https://$FQDN"
-          fi
-          if [ -z "$WEB_URL" ]; then
-            WEB_FQDN=$(az containerapp show --name postgen-web-${{ env.AZURE_ENV_NAME }} --resource-group ${{ env.RESOURCE_GROUP }} --query "properties.configuration.ingress.fqdn" -o tsv 2>/dev/null) || true
-            [ -n "$WEB_FQDN" ] && WEB_URL="https://$WEB_FQDN"
-          fi
-          if [ -n "$API_URL" ]; then
-            azd env set NEXT_PUBLIC_API_URL "$API_URL"
-            echo "api_url=$API_URL" >> $GITHUB_OUTPUT
-          fi
-          if [ -n "$WEB_URL" ]; then
-            echo "web_url=$WEB_URL" >> $GITHUB_OUTPUT
-          fi
+      # - name: Set API URL for frontend
+      #   id: api_url
+      #   run: |
+      #     DEPLOYMENT_NAME=$(az deployment group list --resource-group ${{ env.RESOURCE_GROUP }} --query "[0].name" -o tsv 2>/dev/null) || true
+      #     if [ -n "$DEPLOYMENT_NAME" ]; then
+      #       API_URL=$(az deployment group show --resource-group ${{ env.RESOURCE_GROUP }} --name "$DEPLOYMENT_NAME" --query "properties.outputs.apiUrl.value" -o tsv 2>/dev/null) || true
+      #       WEB_URL=$(az deployment group show --resource-group ${{ env.RESOURCE_GROUP }} --name "$DEPLOYMENT_NAME" --query "properties.outputs.webUrl.value" -o tsv 2>/dev/null) || true
+      #     fi
+      #     if [ -z "$API_URL" ]; then
+      #       FQDN=$(az containerapp show --name postgen-api-${{ env.AZURE_ENV_NAME }} --resource-group ${{ env.RESOURCE_GROUP }} --query "properties.configuration.ingress.fqdn" -o tsv 2>/dev/null) || true
+      #       [ -n "$FQDN" ] && API_URL="https://$FQDN"
+      #     fi
+      #     if [ -z "$WEB_URL" ]; then
+      #       WEB_FQDN=$(az containerapp show --name postgen-web-${{ env.AZURE_ENV_NAME }} --resource-group ${{ env.RESOURCE_GROUP }} --query "properties.configuration.ingress.fqdn" -o tsv 2>/dev/null) || true
+      #       [ -n "$WEB_FQDN" ] && WEB_URL="https://$WEB_FQDN"
+      #     fi
+      #     if [ -n "$API_URL" ]; then
+      #       azd env set NEXT_PUBLIC_API_URL "$API_URL"
+      #       echo "api_url=$API_URL" >> $GITHUB_OUTPUT
+      #     fi
+      #     if [ -n "$WEB_URL" ]; then
+      #       echo "web_url=$WEB_URL" >> $GITHUB_OUTPUT
+      #     fi
 
       - name: Deploy application
         run: azd deploy --no-prompt

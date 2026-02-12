@@ -1,5 +1,7 @@
 targetScope = 'resourceGroup'
 
+param deployThisTime bool = false
+
 @description('Base name for resources (e.g. postgen)')
 param baseName string = 'postgen'
 
@@ -98,7 +100,7 @@ resource logAnalytics 'Microsoft.OperationalInsights/workspaces@2022-10-01' = if
   }
 }
 
-resource acr 'Microsoft.ContainerRegistry/registries@2023-11-01-preview' = if (!localDevOnly) {
+resource acr 'Microsoft.ContainerRegistry/registries@2023-11-01-preview' = if (!localDevOnly && deployThisTime) {
   name: acrName
   location: location
   sku: { name: 'Basic' }
@@ -107,29 +109,29 @@ resource acr 'Microsoft.ContainerRegistry/registries@2023-11-01-preview' = if (!
   }
 }
 
-resource storage 'Microsoft.Storage/storageAccounts@2023-01-01' = if (!localDevOnly) {
+resource storage 'Microsoft.Storage/storageAccounts@2023-01-01' = if (!localDevOnly && deployThisTime) {
   name: storageName
   location: location
   kind: 'StorageV2'
   sku: { name: 'Standard_LRS' }
 }
 
-resource blobService 'Microsoft.Storage/storageAccounts/blobServices@2023-01-01' = if (!localDevOnly) {
+resource blobService 'Microsoft.Storage/storageAccounts/blobServices@2023-01-01' = if (!localDevOnly && deployThisTime) {
   parent: storage
   name: 'default'
 }
 
-resource blobContainer 'Microsoft.Storage/storageAccounts/blobServices/containers@2023-01-01' = if (!localDevOnly) {
+resource blobContainer 'Microsoft.Storage/storageAccounts/blobServices/containers@2023-01-01' = if (!localDevOnly && deployThisTime) {
   parent: blobService
   name: blobContainerName
 }
 
-resource deploymentStorageContainer 'Microsoft.Storage/storageAccounts/blobServices/containers@2023-01-01' = if (!localDevOnly) {
+resource deploymentStorageContainer 'Microsoft.Storage/storageAccounts/blobServices/containers@2023-01-01' = if (!localDevOnly && deployThisTime) {
   parent: blobService
   name: deploymentStorageContainerName
 }
 
-resource sqlServer 'Microsoft.Sql/servers@2022-05-01-preview' = if (!localDevOnly) {
+resource sqlServer 'Microsoft.Sql/servers@2022-05-01-preview' = if (!localDevOnly && deployThisTime) {
   name: sqlServerName
   location: location
   properties: {
@@ -139,7 +141,7 @@ resource sqlServer 'Microsoft.Sql/servers@2022-05-01-preview' = if (!localDevOnl
   }
 }
 
-resource sqlDb 'Microsoft.Sql/servers/databases@2022-05-01-preview' = if (!localDevOnly) {
+resource sqlDb 'Microsoft.Sql/servers/databases@2022-05-01-preview' = if (!localDevOnly && deployThisTime) {
   parent: sqlServer
   name: sqlDatabaseName
   location: location
@@ -149,7 +151,7 @@ resource sqlDb 'Microsoft.Sql/servers/databases@2022-05-01-preview' = if (!local
   }
 }
 
-resource sqlFirewallRule 'Microsoft.Sql/servers/firewallRules@2022-05-01-preview' = if (!localDevOnly) {
+resource sqlFirewallRule 'Microsoft.Sql/servers/firewallRules@2022-05-01-preview' = if (!localDevOnly && deployThisTime) {
   parent: sqlServer
   name: 'AllowAzureServices'
   properties: {
@@ -159,7 +161,7 @@ resource sqlFirewallRule 'Microsoft.Sql/servers/firewallRules@2022-05-01-preview
 }
 
 // Local dev: separate accounts so GPT can be in West Europe and DALL-E in Sweden Central regardless of RG location.
-resource openaiChatAccount 'Microsoft.CognitiveServices/accounts@2024-10-01' = if (localDevOnly) {
+resource openaiChatAccount 'Microsoft.CognitiveServices/accounts@2024-10-01' = if (localDevOnly && deployThisTime) {
   name: openAIChatName
   location: openAIChatLocation
   kind: 'OpenAI'
@@ -167,7 +169,7 @@ resource openaiChatAccount 'Microsoft.CognitiveServices/accounts@2024-10-01' = i
   properties: {}
 }
 
-resource openaiChatAccountDeployment 'Microsoft.CognitiveServices/accounts/deployments@2023-05-01' = if (localDevOnly) {
+resource openaiChatAccountDeployment 'Microsoft.CognitiveServices/accounts/deployments@2023-05-01' = if (localDevOnly && deployThisTime) {
   parent: openaiChatAccount
   name: 'gpt-4o'
   sku: { name: 'GlobalStandard', capacity: 10 }
@@ -178,7 +180,7 @@ resource openaiChatAccountDeployment 'Microsoft.CognitiveServices/accounts/deplo
   }
 }
 
-resource openaiImageAccount 'Microsoft.CognitiveServices/accounts@2024-10-01' = if (localDevOnly && deployImageModel) {
+resource openaiImageAccount 'Microsoft.CognitiveServices/accounts@2024-10-01' = if (localDevOnly && deployImageModel && deployThisTime) {
   name: openAIImageName
   location: openAIImageLocation
   kind: 'OpenAI'
@@ -186,7 +188,7 @@ resource openaiImageAccount 'Microsoft.CognitiveServices/accounts@2024-10-01' = 
   properties: {}
 }
 
-resource openaiImageAccountDeployment 'Microsoft.CognitiveServices/accounts/deployments@2023-05-01' = if (localDevOnly && deployImageModel) {
+resource openaiImageAccountDeployment 'Microsoft.CognitiveServices/accounts/deployments@2023-05-01' = if (localDevOnly && deployImageModel && deployThisTime) {
   parent: openaiImageAccount
   name: 'dall-e-3'
   sku: { name: 'Standard', capacity: 1 }
@@ -198,7 +200,7 @@ resource openaiImageAccountDeployment 'Microsoft.CognitiveServices/accounts/depl
 }
 
 // Full deploy: chat account in AZURE_AI_LOCATION, image account in AZURE_IMAGE_LOCATION (when deployImageModel).
-resource openaiProdChat 'Microsoft.CognitiveServices/accounts@2024-10-01' = if (!localDevOnly) {
+resource openaiProdChat 'Microsoft.CognitiveServices/accounts@2024-10-01' = if (!localDevOnly && deployThisTime) {
   name: openAIChatName
   location: openAIChatLocation
   kind: 'OpenAI'
@@ -206,7 +208,7 @@ resource openaiProdChat 'Microsoft.CognitiveServices/accounts@2024-10-01' = if (
   properties: {}
 }
 
-resource openaiProdChatDeployment 'Microsoft.CognitiveServices/accounts/deployments@2023-05-01' = if (!localDevOnly) {
+resource openaiProdChatDeployment 'Microsoft.CognitiveServices/accounts/deployments@2023-05-01' = if (!localDevOnly && deployThisTime) {
   parent: openaiProdChat
   name: 'gpt-4o'
   sku: { name: 'GlobalStandard', capacity: 10 }
@@ -217,7 +219,7 @@ resource openaiProdChatDeployment 'Microsoft.CognitiveServices/accounts/deployme
   }
 }
 
-resource openaiProdImage 'Microsoft.CognitiveServices/accounts@2024-10-01' = if (!localDevOnly && deployImageModel) {
+resource openaiProdImage 'Microsoft.CognitiveServices/accounts@2024-10-01' = if (!localDevOnly && deployImageModel && deployThisTime) {
   name: openAIImageName
   location: openAIImageLocation
   kind: 'OpenAI'
@@ -225,7 +227,7 @@ resource openaiProdImage 'Microsoft.CognitiveServices/accounts@2024-10-01' = if 
   properties: {}
 }
 
-resource openaiProdImageDeployment 'Microsoft.CognitiveServices/accounts/deployments@2023-05-01' = if (!localDevOnly && deployImageModel) {
+resource openaiProdImageDeployment 'Microsoft.CognitiveServices/accounts/deployments@2023-05-01' = if (!localDevOnly && deployImageModel && deployThisTime) {
   parent: openaiProdImage
   name: 'dall-e-3'
   sku: { name: 'Standard', capacity: 1 }
@@ -236,7 +238,7 @@ resource openaiProdImageDeployment 'Microsoft.CognitiveServices/accounts/deploym
   }
 }
 
-resource containerAppEnv 'Microsoft.App/managedEnvironments@2024-03-01' = if (!localDevOnly) {
+resource containerAppEnv 'Microsoft.App/managedEnvironments@2024-03-01' = if (!localDevOnly && deployThisTime) {
   name: containerAppEnvName
   location: location
   properties: {
@@ -250,7 +252,7 @@ resource containerAppEnv 'Microsoft.App/managedEnvironments@2024-03-01' = if (!l
   }
 }
 
-resource apiApp 'Microsoft.App/containerApps@2024-03-01' = if (!localDevOnly) {
+resource apiApp 'Microsoft.App/containerApps@2024-03-01' = if (!localDevOnly && deployThisTime) {
   name: apiAppName
   location: location
   properties: {
@@ -322,7 +324,7 @@ resource apiApp 'Microsoft.App/containerApps@2024-03-01' = if (!localDevOnly) {
   }
 }
 
-resource webApp 'Microsoft.App/containerApps@2024-03-01' = if (!localDevOnly) {
+resource webApp 'Microsoft.App/containerApps@2024-03-01' = if (!localDevOnly && deployThisTime) {
   name: webAppName
   location: location
   properties: {
@@ -374,83 +376,83 @@ resource webApp 'Microsoft.App/containerApps@2024-03-01' = if (!localDevOnly) {
   }
 }
 
-// resource functionPlan 'Microsoft.Web/serverfarms@2024-04-01' = if (!localDevOnly) {
-//   name: '${baseName}-plan-${environmentName}'
-//   location: location
-//   kind: 'functionapp'
-//   sku: { tier: 'FlexConsumption', name: 'FC1' }
-//   properties: { reserved: true }
-// }
+resource functionPlan 'Microsoft.Web/serverfarms@2024-04-01' = if (!localDevOnly && deployThisTime) {
+  name: '${baseName}-plan-${environmentName}'
+  location: location
+  kind: 'functionapp'
+  sku: { tier: 'FlexConsumption', name: 'FC1' }
+  properties: { reserved: true }
+}
 
-// resource functionApp 'Microsoft.Web/sites@2024-04-01' = if (!localDevOnly) {
-//   name: functionAppName
-//   location: location
-//   kind: 'functionapp,linux'
-//   identity: {
-//     type: 'SystemAssigned'
-//   }
-//   properties: {
-//     serverFarmId: functionPlan.id
-//     httpsOnly: true
-//     siteConfig: {
-//       appSettings: [
-//         { name: 'AzureWebJobsStorage', value: 'DefaultEndpointsProtocol=https;AccountName=${storage.name};EndpointSuffix=${environment().suffixes.storage};AccountKey=${storage.listKeys().keys[0].value}' }
-//         { name: 'FUNCTIONS_EXTENSION_VERSION', value: '~4' }
-//         { name: 'ConnectionStrings__DefaultConnection', value: 'Server=tcp:${sqlServer.properties.fullyQualifiedDomainName},1433;Initial Catalog=${sqlDatabaseName};Persist Security Info=False;User ID=${sqlAdminLogin};Password=${sqlAdminPassword};MultipleActiveResultSets=False;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;' }
-//         { name: 'Mailgun__ApiKey', value: mailgunApiKey }
-//         { name: 'Mailgun__Domain', value: mailgunDomain }
-//         { name: 'Mailgun__FromAddress', value: mailgunFromAddress }
-//         { name: 'Mailgun__FromName', value: mailgunFromName }
-//       ]
-//     }
-//     functionAppConfig: {
-//       scaleAndConcurrency: {
-//         maximumInstanceCount: 100
-//         instanceMemoryMB: 2048
-//       }
-//       runtime: { name: 'dotnet-isolated', version: '10.0' }
-//       deployment: {
-//         storage: {
-//           type: 'blobContainer'
-//           value: '${storage.properties.primaryEndpoints.blob}${deploymentStorageContainerName}'
-//           authentication: {
-//             type: 'StorageAccountConnectionString'
-//             storageAccountConnectionStringName: 'AzureWebJobsStorage'
-//           }
-//         }
-//       }
-//     }
-//   }
-// }
+resource functionApp 'Microsoft.Web/sites@2024-04-01' = if (!localDevOnly && deployThisTime) {
+  name: functionAppName
+  location: location
+  kind: 'functionapp,linux'
+  identity: {
+    type: 'SystemAssigned'
+  }
+  properties: {
+    serverFarmId: functionPlan.id
+    httpsOnly: true
+    siteConfig: {
+      appSettings: [
+        { name: 'AzureWebJobsStorage', value: 'DefaultEndpointsProtocol=https;AccountName=${storage.name};EndpointSuffix=${environment().suffixes.storage};AccountKey=${storage.listKeys().keys[0].value}' }
+        { name: 'FUNCTIONS_EXTENSION_VERSION', value: '~4' }
+        { name: 'ConnectionStrings__DefaultConnection', value: 'Server=tcp:${sqlServer.properties.fullyQualifiedDomainName},1433;Initial Catalog=${sqlDatabaseName};Persist Security Info=False;User ID=${sqlAdminLogin};Password=${sqlAdminPassword};MultipleActiveResultSets=False;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;' }
+        { name: 'Mailgun__ApiKey', value: mailgunApiKey }
+        { name: 'Mailgun__Domain', value: mailgunDomain }
+        { name: 'Mailgun__FromAddress', value: mailgunFromAddress }
+        { name: 'Mailgun__FromName', value: mailgunFromName }
+      ]
+    }
+    functionAppConfig: {
+      scaleAndConcurrency: {
+        maximumInstanceCount: 100
+        instanceMemoryMB: 2048
+      }
+      runtime: { name: 'dotnet-isolated', version: '10.0' }
+      deployment: {
+        storage: {
+          type: 'blobContainer'
+          value: '${storage.properties.primaryEndpoints.blob}${deploymentStorageContainerName}'
+          authentication: {
+            type: 'StorageAccountConnectionString'
+            storageAccountConnectionStringName: 'AzureWebJobsStorage'
+          }
+        }
+      }
+    }
+  }
+}
 
-// resource staticWebApp 'Microsoft.Web/staticSites@2022-09-01' = if (!localDevOnly) {
-//   name: staticWebAppName
-//   location: location
-//   sku: {
-//     name: 'Free'
-//     tier: 'Free'
-//   }
-//   properties: {}
-// }
+resource staticWebApp 'Microsoft.Web/staticSites@2022-09-01' = if (!localDevOnly && deployThisTime) {
+  name: staticWebAppName
+  location: location
+  sku: {
+    name: 'Free'
+    tier: 'Free'
+  }
+  properties: {}
+}
 
-var openAIImageEndpointLocal = localDevOnly && deployImageModel ? openaiImageAccount!.properties.endpoint : ''
-var openAIImageEndpointProd = openaiProdImage.?properties.?endpoint ?? ''
-var openAIImageAccountNameLocal = localDevOnly && deployImageModel ? openaiImageAccount!.name : ''
-var openAIImageAccountNameProd = openaiProdImage.?name ?? ''
+// var openAIImageEndpointLocal = localDevOnly && deployImageModel ? openaiImageAccount!.properties.endpoint : ''
+// var openAIImageEndpointProd = openaiProdImage.?properties.?endpoint ?? ''
+// var openAIImageAccountNameLocal = localDevOnly && deployImageModel ? openaiImageAccount!.name : ''
+// var openAIImageAccountNameProd = openaiProdImage.?name ?? ''
 
-output acrLoginServer string = !localDevOnly ? acr!.properties.loginServer : ''
-output acrName string = !localDevOnly ? acr!.name : ''
-output apiAppName string = !localDevOnly ? apiApp!.name : ''
-output apiAppFqdn string = !localDevOnly ? apiApp!.properties.configuration.ingress.fqdn : ''
-output apiUrl string = !localDevOnly ? 'https://${apiApp!.properties.configuration.ingress.fqdn}' : ''
-output webAppName string = !localDevOnly ? webApp!.name : ''
-output webAppFqdn string = !localDevOnly ? webApp!.properties.configuration.ingress.fqdn : ''
-output webUrl string = !localDevOnly ? 'https://${webApp!.properties.configuration.ingress.fqdn}' : ''
-// output functionAppName string = !localDevOnly ? functionApp.name : ''
-output openAIEndpoint string = localDevOnly ? openaiChatAccount!.properties.endpoint : openaiProdChat!.properties.endpoint
-output openAIImageEndpoint string = localDevOnly ? openAIImageEndpointLocal : openAIImageEndpointProd
-output openAIImageAccountName string = localDevOnly ? openAIImageAccountNameLocal : openAIImageAccountNameProd
-output openAIChatAccountName string = localDevOnly ? openaiChatAccount!.name : openaiProdChat!.name
-output storageAccountName string = !localDevOnly ? storage!.name : ''
-// output staticWebAppName string = !localDevOnly ? staticWebApp.name : ''
-output resourceGroupName string = resourceGroup().name
+// output acrLoginServer string = !localDevOnly ? acr!.properties.loginServer : ''
+// output acrName string = !localDevOnly ? acr!.name : ''
+// output apiAppName string = !localDevOnly ? apiApp!.name : ''
+// output apiAppFqdn string = !localDevOnly ? apiApp!.properties.configuration.ingress.fqdn : ''
+// output apiUrl string = !localDevOnly ? 'https://${apiApp!.properties.configuration.ingress.fqdn}' : ''
+// output webAppName string = !localDevOnly ? webApp!.name : ''
+// output webAppFqdn string = !localDevOnly ? webApp!.properties.configuration.ingress.fqdn : ''
+// output webUrl string = !localDevOnly ? 'https://${webApp!.properties.configuration.ingress.fqdn}' : ''
+// // output functionAppName string = !localDevOnly ? functionApp.name : ''
+// output openAIEndpoint string = localDevOnly ? openaiChatAccount!.properties.endpoint : openaiProdChat!.properties.endpoint
+// output openAIImageEndpoint string = localDevOnly ? openAIImageEndpointLocal : openAIImageEndpointProd
+// output openAIImageAccountName string = localDevOnly ? openAIImageAccountNameLocal : openAIImageAccountNameProd
+// output openAIChatAccountName string = localDevOnly ? openaiChatAccount!.name : openaiProdChat!.name
+// output storageAccountName string = !localDevOnly ? storage!.name : ''
+// // output staticWebAppName string = !localDevOnly ? staticWebApp.name : ''
+// output resourceGroupName string = resourceGroup().name
