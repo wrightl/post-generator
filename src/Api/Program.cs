@@ -66,25 +66,28 @@ builder.Services.AddCors(options =>
     options.AddDefaultPolicy(policy =>
     {
         var originsSection = builder.Configuration.GetSection("Cors:Origins").Get<string[]>();
-        string[] origins;
+        List<string> origins = new();
         if (originsSection?.Length > 0)
         {
-            origins = originsSection.Where(o => !string.IsNullOrWhiteSpace(o)).Select(o => o.Trim()).ToArray();
+            origins = originsSection.Where(o => !string.IsNullOrWhiteSpace(o)).Select(o => o.Trim()).ToList();
         }
         else
         {
             // Env vars use __ which ASP.NET maps to :, so Cors__Origins in Azure becomes key "Cors:Origins"
             var originsStr = builder.Configuration["Cors:Origins"] ?? builder.Configuration["Cors__Origins"];
             origins = string.IsNullOrWhiteSpace(originsStr)
-                ? new[] { "http://localhost:3000" }
+                ? new List<string> { "http://localhost:3000" }
                 : originsStr.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
                     .Where(o => !string.IsNullOrWhiteSpace(o))
                     .Select(o => o.Trim())
-                    .ToArray();
+                    .ToList();
         }
-        if (origins.Length == 0)
-            origins = new[] { "http://localhost:3000" };
-        policy.WithOrigins(origins).AllowAnyMethod().AllowAnyHeader();
+        if (origins.Count == 0)
+            origins = new List<string> { "http://localhost:3000" };
+
+        // origins.Add("https://postgen-web-prod.orangesand-4b8e6f98.uksouth.azurecontainerapps.io");
+
+        policy.WithOrigins(origins.ToArray()).AllowAnyMethod().AllowAnyHeader();
     });
 });
 
@@ -147,7 +150,9 @@ app.Use(async (context, next) =>
     context.Request.EnableBuffering();
     await next();
 });
-if (!app.Environment.IsDevelopment())
+// Only redirect HTTP→HTTPS when running locally. In Azure Container Apps the ingress terminates TLS
+// and forwards HTTP to the app; running redirect here would run before CORS and break preflight.
+if (app.Environment.IsDevelopment())
 {
     app.UseHttpsRedirection();
 }
