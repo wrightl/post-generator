@@ -1,0 +1,24 @@
+# API image – build context is repo root (see azure.yaml api project + docker path)
+FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
+WORKDIR /src
+
+# Copy solution and project files for restore (Api + referenced Core project)
+COPY PostGenerator.slnx ./
+COPY src/Core/Core.csproj src/Core/
+COPY src/Api/Api.csproj src/Api/
+RUN dotnet restore src/Api/Api.csproj
+
+# Copy full source and publish
+COPY src/Core/ src/Core/
+COPY src/Api/ src/Api/
+RUN dotnet publish src/Api/Api.csproj -c Release -o /app
+
+# Runtime stage
+FROM mcr.microsoft.com/dotnet/aspnet:10.0
+WORKDIR /app
+COPY --from=build /app .
+
+# Container Apps expects the API on port 8080 (see infra/main.bicep targetPort)
+ENV ASPNETCORE_URLS=http://+:8080
+
+ENTRYPOINT ["dotnet", "Api.dll"]

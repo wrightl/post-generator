@@ -3,9 +3,11 @@
 name: postgenerator
 services:
   api:
-    project: src/Api
+    project: .
     language: docker
     host: containerapp
+    docker:
+      path: ./Dockerfile.api
   web:
     project: src/Web
     language: docker
