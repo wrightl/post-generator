@@ -226,6 +226,7 @@ resource openaiProdImage 'Microsoft.CognitiveServices/accounts@2024-10-01' = {
 
 resource openaiProdImageDeployment 'Microsoft.CognitiveServices/accounts/deployments@2023-05-01' = {
   parent: openaiProdImage
+  dependsOn: [openaiProdImage]
   name: 'dall-e-3'
   sku: { name: 'Standard', capacity: 1 }
   properties: {
@@ -251,6 +252,7 @@ resource containerAppEnv 'Microsoft.App/managedEnvironments@2024-03-01' = {
 
 resource apiApp 'Microsoft.App/containerApps@2024-03-01' = {
   name: apiAppName
+  dependsOn: [openaiProdChat, openaiProdImage]
   location: location
   properties: {
     managedEnvironmentId: containerAppEnv.id
