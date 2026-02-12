@@ -61,32 +61,32 @@ builder.Services.AddHealthChecks()
     .AddCheck<PostGenerator.Api.HealthChecks.BlobStorageHealthCheck>("blob_storage")
     .AddCheck<PostGenerator.Api.HealthChecks.AzureOpenAIHealthCheck>("azure_openai");
 
-builder.Services.AddCors(options =>
-{
-    options.AddDefaultPolicy(policy =>
-    {
-        var originsSection = builder.Configuration.GetSection("Cors:Origins").Get<string[]>();
-        string[] origins;
-        if (originsSection?.Length > 0)
-        {
-            origins = originsSection.Where(o => !string.IsNullOrWhiteSpace(o)).Select(o => o.Trim()).ToArray();
-        }
-        else
-        {
-            // Env vars use __ which ASP.NET maps to :, so Cors__Origins in Azure becomes key "Cors:Origins"
-            var originsStr = builder.Configuration["Cors:Origins"] ?? builder.Configuration["Cors__Origins"];
-            origins = string.IsNullOrWhiteSpace(originsStr)
-                ? new[] { "http://localhost:3000" }
-                : originsStr.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-                    .Where(o => !string.IsNullOrWhiteSpace(o))
-                    .Select(o => o.Trim())
-                    .ToArray();
-        }
-        if (origins.Length == 0)
-            origins = new[] { "http://localhost:3000" };
-        policy.WithOrigins(origins).AllowAnyMethod().AllowAnyHeader();
-    });
-});
+// builder.Services.AddCors(options =>
+// {
+//     options.AddDefaultPolicy(policy =>
+//     {
+//         var originsSection = builder.Configuration.GetSection("Cors:Origins").Get<string[]>();
+//         string[] origins;
+//         if (originsSection?.Length > 0)
+//         {
+//             origins = originsSection.Where(o => !string.IsNullOrWhiteSpace(o)).Select(o => o.Trim()).ToArray();
+//         }
+//         else
+//         {
+//             // Env vars use __ which ASP.NET maps to :, so Cors__Origins in Azure becomes key "Cors:Origins"
+//             var originsStr = builder.Configuration["Cors:Origins"] ?? builder.Configuration["Cors__Origins"];
+//             origins = string.IsNullOrWhiteSpace(originsStr)
+//                 ? new[] { "http://localhost:3000" }
+//                 : originsStr.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+//                     .Where(o => !string.IsNullOrWhiteSpace(o))
+//                     .Select(o => o.Trim())
+//                     .ToArray();
+//         }
+//         if (origins.Length == 0)
+//             origins = new[] { "http://localhost:3000" };
+//         policy.WithOrigins(origins).AllowAnyMethod().AllowAnyHeader();
+//     });
+// });
 
 builder.Services.AddRateLimiter(options =>
 {
