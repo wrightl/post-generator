@@ -73,7 +73,8 @@ builder.Services.AddCors(options =>
         }
         else
         {
-            var originsStr = builder.Configuration["Cors__Origins"];
+            // Env vars use __ which ASP.NET maps to :, so Cors__Origins in Azure becomes key "Cors:Origins"
+            var originsStr = builder.Configuration["Cors:Origins"] ?? builder.Configuration["Cors__Origins"];
             origins = string.IsNullOrWhiteSpace(originsStr)
                 ? new[] { "http://localhost:3000" }
                 : originsStr.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
@@ -105,15 +106,15 @@ builder.Services.AddAuthorization();
 
 var app = builder.Build();
 
-// Log CORS origins at startup so prod logs can verify the value (helps debug "No Access-Control-Allow-Origin" errors)
+// Log CORS origins at startup (Warning so it appears even when default log level is Warning in prod)
 var corsSection = app.Configuration.GetSection("Cors:Origins").Get<string[]>();
-var corsStr = app.Configuration["Cors__Origins"];
+var corsStr = app.Configuration["Cors:Origins"] ?? app.Configuration["Cors__Origins"];
 var loggedOrigins = corsSection?.Length > 0
     ? string.Join(", ", corsSection.Where(o => !string.IsNullOrWhiteSpace(o)).Select(o => o.Trim()))
     : string.IsNullOrWhiteSpace(corsStr)
         ? "http://localhost:3000 (default)"
         : string.Join(", ", corsStr.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Where(o => !string.IsNullOrWhiteSpace(o)).Select(o => o.Trim()));
-app.Logger.LogInformation("CORS allowed origins: {Origins}", loggedOrigins);
+app.Logger.LogWarning("CORS allowed origins: {Origins}", loggedOrigins);
 
 // Run migrations at startup (required for app to function)
 using (var scope = app.Services.CreateScope())
