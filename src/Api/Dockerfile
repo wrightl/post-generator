@@ -1,17 +1,18 @@
-# Build stage – restore and publish (context is repo root when built by azd)
+# Build stage – build context is src/Api (set by azd)
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
 
 # Copy solution and project files for restore (Api + referenced Core project)
-COPY PostGenerator.slnx ./
-COPY src/Core/Core.csproj src/Core/
-COPY src/Api/Api.csproj src/Api/
-RUN dotnet restore src/Api/Api.csproj
+# Using .. to access parent directory since build context is src/Api
+COPY ../PostGenerator.slnx ./
+COPY ../Core/Core.csproj Core/
+COPY Api.csproj Api/
+RUN dotnet restore Api/Api.csproj
 
 # Copy full source and publish
-COPY src/Core/ src/Core/
-COPY src/Api/ src/Api/
-RUN dotnet publish src/Api/Api.csproj -c Release -o /app
+COPY ../Core/ Core/
+COPY . Api/
+RUN dotnet publish Api/Api.csproj -c Release -o /app
 
 # Runtime stage
 FROM mcr.microsoft.com/dotnet/aspnet:10.0
