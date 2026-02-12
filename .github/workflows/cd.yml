@@ -40,6 +40,10 @@ jobs:
         run: |
           az group create --name ${{ env.RESOURCE_GROUP }} --location ${{ env.LOCATION }} --output none
 
+      - name: Register Microsoft.App (Container Apps) provider
+        run: |
+          az provider register -n Microsoft.App --wait
+
       - name: Check required secrets
         run: |
           if [ -z "${{ secrets.SQL_ADMIN_PASSWORD }}" ]; then
