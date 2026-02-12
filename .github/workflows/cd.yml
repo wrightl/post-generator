@@ -41,9 +41,6 @@ jobs:
         run: |
           az group create --name ${{ env.RESOURCE_GROUP }} --location ${{ env.LOCATION }} --output none
 
-      - name: run-what-if
-        run: az deployment group what-if --resource-group ${{ env.RESOURCE_GROUP }} --template-file infra/main.bicep --verbose
-
       - name: Check required secrets
         run: |
           if [ -z "${{ secrets.SQL_ADMIN_PASSWORD }}" ]; then
