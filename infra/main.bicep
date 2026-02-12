@@ -253,6 +253,10 @@ resource containerAppEnv 'Microsoft.App/managedEnvironments@2024-03-01' = {
 resource apiApp 'Microsoft.App/containerApps@2024-03-01' = {
   name: apiAppName
   location: location
+  tags: {
+    'azd-service-name': 'api'
+    'azd-env-name': environmentName
+  }
   properties: {
     managedEnvironmentId: containerAppEnv.id
     configuration: {
@@ -286,6 +290,7 @@ resource apiApp 'Microsoft.App/containerApps@2024-03-01' = {
         resources: { cpu: json('0.5'), memory: '1Gi' }
         env: concat(
           [
+            { name: 'ASPNETCORE_URLS', value: 'http://+:8080' }
             { name: 'AzureOpenAI__Endpoint', value: openaiProdChat!.properties.endpoint }
             { name: 'AzureOpenAI__ApiKey', secretRef: 'openai-api-key' }
             { name: 'AzureOpenAI__ChatDeploymentName', value: 'gpt-4o' }
@@ -325,6 +330,10 @@ resource apiApp 'Microsoft.App/containerApps@2024-03-01' = {
 resource webApp 'Microsoft.App/containerApps@2024-03-01' = {
   name: webAppName
   location: location
+  tags: {
+    'azd-service-name': 'web'
+    'azd-env-name': environmentName
+  }
   properties: {
     managedEnvironmentId: containerAppEnv.id
     configuration: {
@@ -384,6 +393,10 @@ resource functionApp 'Microsoft.Web/sites@2024-04-01' = {
   name: functionAppName
   location: location
   kind: 'functionapp,linux'
+  tags: {
+    'azd-service-name': 'function'
+    'azd-env-name': environmentName
+  }
   identity: {
     type: 'SystemAssigned'
   }
