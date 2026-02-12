@@ -425,16 +425,6 @@ resource functionApp 'Microsoft.Web/sites@2024-04-01' = if (!localDevOnly && dep
   }
 }
 
-resource staticWebApp 'Microsoft.Web/staticSites@2022-09-01' = if (!localDevOnly && deployThisTime) {
-  name: staticWebAppName
-  location: location
-  sku: {
-    name: 'Free'
-    tier: 'Free'
-  }
-  properties: {}
-}
-
 // var openAIImageEndpointLocal = localDevOnly && deployImageModel ? openaiImageAccount!.properties.endpoint : ''
 // var openAIImageEndpointProd = openaiProdImage.?properties.?endpoint ?? ''
 // var openAIImageAccountNameLocal = localDevOnly && deployImageModel ? openaiImageAccount!.name : ''
