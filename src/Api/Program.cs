@@ -66,15 +66,23 @@ builder.Services.AddCors(options =>
     options.AddDefaultPolicy(policy =>
     {
         var originsSection = builder.Configuration.GetSection("Cors:Origins").Get<string[]>();
+        string[] origins;
         if (originsSection?.Length > 0)
         {
-            policy.WithOrigins(originsSection).AllowAnyMethod().AllowAnyHeader();
-            return;
+            origins = originsSection.Where(o => !string.IsNullOrWhiteSpace(o)).Select(o => o.Trim()).ToArray();
         }
-        var originsStr = builder.Configuration["Cors__Origins"];
-        var origins = string.IsNullOrWhiteSpace(originsStr)
-            ? new[] { "http://localhost:3000" }
-            : originsStr.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        else
+        {
+            var originsStr = builder.Configuration["Cors__Origins"];
+            origins = string.IsNullOrWhiteSpace(originsStr)
+                ? new[] { "http://localhost:3000" }
+                : originsStr.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                    .Where(o => !string.IsNullOrWhiteSpace(o))
+                    .Select(o => o.Trim())
+                    .ToArray();
+        }
+        if (origins.Length == 0)
+            origins = new[] { "http://localhost:3000" };
         policy.WithOrigins(origins).AllowAnyMethod().AllowAnyHeader();
     });
 });
@@ -96,6 +104,16 @@ builder.Services.AddAuthentication(FirebaseAuthOptions.DefaultScheme)
 builder.Services.AddAuthorization();
 
 var app = builder.Build();
+
+// Log CORS origins at startup so prod logs can verify the value (helps debug "No Access-Control-Allow-Origin" errors)
+var corsSection = app.Configuration.GetSection("Cors:Origins").Get<string[]>();
+var corsStr = app.Configuration["Cors__Origins"];
+var loggedOrigins = corsSection?.Length > 0
+    ? string.Join(", ", corsSection.Where(o => !string.IsNullOrWhiteSpace(o)).Select(o => o.Trim()))
+    : string.IsNullOrWhiteSpace(corsStr)
+        ? "http://localhost:3000 (default)"
+        : string.Join(", ", corsStr.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Where(o => !string.IsNullOrWhiteSpace(o)).Select(o => o.Trim()));
+app.Logger.LogInformation("CORS allowed origins: {Origins}", loggedOrigins);
 
 // Run migrations at startup (required for app to function)
 using (var scope = app.Services.CreateScope())

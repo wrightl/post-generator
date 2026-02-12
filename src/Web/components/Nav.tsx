@@ -33,6 +33,9 @@ function UserIcon({ className }: { className?: string }) {
 export function Nav() {
   const pathname = usePathname();
   const { appUser } = useAuth();
+
+  if (!appUser) return null;
+
   const displayName = appUser?.name?.trim() || appUser?.email || "Profile";
 
   return (
