@@ -9,7 +9,6 @@ env:
   LOCATION: ${{ vars.LOCATION || 'westeurope' }}
   AZURE_ENV_NAME: ${{ vars.AZURE_ENV_NAME || 'dev' }}
   AZURE_AI_LOCATION: ${{ vars.AZURE_AI_LOCATION || 'westeurope' }}
-  AZURE_IMAGE_LOCATION: ${{ vars.AZURE_IMAGE_LOCATION || 'swedencentral' }}
 
 jobs:
   deploy:
@@ -56,11 +55,9 @@ jobs:
           azd env set AZURE_RESOURCE_GROUP ${{ env.RESOURCE_GROUP }}
           azd env set AZURE_LOCATION ${{ env.LOCATION }}
           azd env set AZURE_AI_LOCATION ${{ env.AZURE_AI_LOCATION }}
-          azd env set AZURE_IMAGE_LOCATION ${{ env.AZURE_IMAGE_LOCATION }}
           azd env set LOCAL_DEV_ONLY "false"
           azd env set AZURE_SQL_ADMIN_LOGIN "${{ vars.AZURE_SQL_ADMIN_LOGIN || 'sqladmin' }}"
           azd env set AZURE_SQL_ADMIN_PASSWORD "${{ secrets.SQL_ADMIN_PASSWORD }}"
-          if [ "${{ env.LOCATION }}" = "westeurope" ]; then azd env set DEPLOY_IMAGE_MODEL "false"; else azd env set DEPLOY_IMAGE_MODEL "true"; fi
           azd env set FIREBASE_PROJECT_ID "${{ vars.FIREBASE_PROJECT_ID }}"
           azd env set FIREBASE_CREDENTIAL_JSON_BASE64 "${{ secrets.FIREBASE_CREDENTIAL_JSON_BASE64 }}"
           azd env set CORS_ORIGINS "${{ vars.CORS_ORIGINS }}"

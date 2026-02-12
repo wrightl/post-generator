@@ -18,8 +18,8 @@ param environmentName string = 'dev'
 @description('Region for chat (GPT). From AZURE_AI_LOCATION.')
 param openAIChatLocation string = 'westeurope'
 
-@description('Region for image (DALL-E). From AZURE_IMAGE_LOCATION.')
-param openAIImageLocation string = 'swedencentral'
+// @description('Region for image (DALL-E). From AZURE_IMAGE_LOCATION.')
+// param openAIImageLocation string = 'swedencentral'
 
 @description('SQL Server administrator login. From AZURE_SQL_ADMIN_LOGIN.')
 param sqlAdminLogin string = 'sqladmin'
@@ -82,7 +82,7 @@ var storageName = toLower(replace('${baseName}${uniqueSuffix}', '-', ''))
 var logAnalyticsName = '${baseName}-logs-${environmentName}'
 // var openAIName = '${baseName}-openai-${environmentName}-${uniqueSuffix}' // Unused variable
 var openAIChatName = '${baseName}-openai-chat-${environmentName}-${uniqueSuffix}'
-var openAIImageName = '${baseName}-openai-image-${environmentName}-${uniqueSuffix}'
+// var openAIImageName = '${baseName}-openai-image-${environmentName}-${uniqueSuffix}'
 var sqlServerName = '${baseName}-sql-${environmentName}-${uniqueSuffix}'
 var sqlDatabaseName = 'postgenerator'
 var blobContainerName = 'post-images'
@@ -216,25 +216,25 @@ resource openaiProdChatDeployment 'Microsoft.CognitiveServices/accounts/deployme
   }
 }
 
-resource openaiProdImage 'Microsoft.CognitiveServices/accounts@2024-10-01' = {
-  name: openAIImageName
-  location: openAIImageLocation
-  kind: 'OpenAI'
-  sku: { name: 'S0' }
-  properties: {}
-}
+// resource openaiProdImage 'Microsoft.CognitiveServices/accounts@2024-10-01' = {
+//   name: openAIImageName
+//   location: openAIImageLocation
+//   kind: 'OpenAI'
+//   sku: { name: 'S0' }
+//   properties: {}
+// }
 
-resource openaiProdImageDeployment 'Microsoft.CognitiveServices/accounts/deployments@2023-05-01' = {
-  parent: openaiProdImage
-  dependsOn: [openaiProdImage]
-  name: 'dall-e-3'
-  sku: { name: 'Standard', capacity: 1 }
-  properties: {
-    model: { name: 'dall-e-3', format: 'OpenAI' }
-    raiPolicyName: 'Microsoft.Default'
-    versionUpgradeOption: 'OnceCurrentVersionExpired'
-  }
-}
+// resource openaiProdImageDeployment 'Microsoft.CognitiveServices/accounts/deployments@2023-05-01' = {
+//   parent: openaiProdImage
+//   dependsOn: [openaiProdImage]
+//   name: 'dall-e-3'
+//   sku: { name: 'Standard', capacity: 1 }
+//   properties: {
+//     model: { name: 'dall-e-3', format: 'OpenAI' }
+//     raiPolicyName: 'Microsoft.Default'
+//     versionUpgradeOption: 'OnceCurrentVersionExpired'
+//   }
+// }
 
 resource containerAppEnv 'Microsoft.App/managedEnvironments@2024-03-01' = {
   name: containerAppEnvName
@@ -252,7 +252,6 @@ resource containerAppEnv 'Microsoft.App/managedEnvironments@2024-03-01' = {
 
 resource apiApp 'Microsoft.App/containerApps@2024-03-01' = {
   name: apiAppName
-  dependsOn: [openaiProdChat, openaiProdImage]
   location: location
   properties: {
     managedEnvironmentId: containerAppEnv.id
@@ -275,7 +274,7 @@ resource apiApp 'Microsoft.App/containerApps@2024-03-01' = {
           { name: 'sql-connection-string', value: 'Server=tcp:${sqlServer!.properties.fullyQualifiedDomainName},1433;Initial Catalog=${sqlDatabaseName};Persist Security Info=False;User ID=${sqlAdminLogin};Password=${sqlAdminPassword};MultipleActiveResultSets=False;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;' }
           { name: 'blob-connection-string', value: 'DefaultEndpointsProtocol=https;AccountName=${storage!.name};EndpointSuffix=${environment().suffixes.storage};AccountKey=${storage!.listKeys().keys[0].value}' }
         ],
-        [{ name: 'openai-image-api-key', value: openaiProdImage!.listKeys().key1 }],
+        // [{ name: 'openai-image-api-key', value: openaiProdImage!.listKeys().key1 }],
         firebaseCredentialJsonBase64 != '' ? [{ name: 'firebase-credential-base64', value: firebaseCredentialJsonBase64 }] : [],
         mailgunApiKey != '' ? [{ name: 'mailgun-api-key', value: mailgunApiKey }] : []
       )
@@ -290,7 +289,7 @@ resource apiApp 'Microsoft.App/containerApps@2024-03-01' = {
             { name: 'AzureOpenAI__Endpoint', value: openaiProdChat!.properties.endpoint }
             { name: 'AzureOpenAI__ApiKey', secretRef: 'openai-api-key' }
             { name: 'AzureOpenAI__ChatDeploymentName', value: 'gpt-4o' }
-            { name: 'AzureOpenAI__ImageDeploymentName', value: 'dall-e-3' }
+            // { name: 'AzureOpenAI__ImageDeploymentName', value: 'dall-e-3' }
             { name: 'ConnectionStrings__DefaultConnection', secretRef: 'sql-connection-string' }
             { name: 'BlobStorage__ConnectionString', secretRef: 'blob-connection-string' }
             { name: 'BlobStorage__ContainerName', value: blobContainerName }
@@ -301,8 +300,8 @@ resource apiApp 'Microsoft.App/containerApps@2024-03-01' = {
             { name: 'Mailgun__FromName', value: mailgunFromName }
           ],
           [
-            { name: 'AzureOpenAI__ImageEndpoint', value: openaiProdImage!.properties.endpoint }
-            { name: 'AzureOpenAI__ImageApiKey', secretRef: 'openai-image-api-key' }
+            // { name: 'AzureOpenAI__ImageEndpoint', value: openaiProdImage!.properties.endpoint }
+            // { name: 'AzureOpenAI__ImageApiKey', secretRef: 'openai-image-api-key' }
           ],
           [{ name: 'Firebase__CredentialJsonBase64', secretRef: 'firebase-credential-base64' }],
           [{ name: 'Mailgun__ApiKey', secretRef: 'mailgun-api-key' }]
@@ -423,9 +422,9 @@ resource functionApp 'Microsoft.Web/sites@2024-04-01' = {
 }
 
 // var openAIImageEndpointLocal = openaiProdImage!.properties.endpoint
-var openAIImageEndpointProd = openaiProdImage!.properties.endpoint
+// var openAIImageEndpointProd = openaiProdImage!.properties.endpoint
 // var openAIImageAccountNameLocal = openaiProdImage!.name
-var openAIImageAccountNameProd = openaiProdImage!.name
+// var openAIImageAccountNameProd = openaiProdImage!.name
 
 output acrLoginServer string = acr!.properties.loginServer
 output acrName string = acr!.name
@@ -437,8 +436,8 @@ output webAppFqdn string = webApp!.properties.configuration.ingress.fqdn
 output webUrl string = 'https://${webApp!.properties.configuration.ingress.fqdn}'
 output functionAppName string = functionApp.name
 output openAIEndpoint string = openaiProdChat!.properties.endpoint
-output openAIImageEndpoint string = openAIImageEndpointProd
-output openAIImageAccountName string = openAIImageAccountNameProd
+// output openAIImageEndpoint string = openAIImageEndpointProd
+// output openAIImageAccountName string = openAIImageAccountNameProd
 output openAIChatAccountName string = openaiProdChat!.name
 output storageAccountName string = storage!.name
 output resourceGroupName string = resourceGroup().name

@@ -18,7 +18,7 @@ public static class PostEndpoints
         app.MapPost("/api/posts", Create).RequireAuthorization().AddEndpointFilter<RequireCurrentUserFilter>().AddEndpointFilter<ValidationFilter<CreatePostRequest>>();
         app.MapPatch("/api/posts/{id:int}", Update).RequireAuthorization().AddEndpointFilter<RequireCurrentUserFilter>().AddEndpointFilter<ValidationFilter<UpdatePostRequest>>();
         app.MapDelete("/api/posts/{id:int}", Delete).RequireAuthorization().AddEndpointFilter<RequireCurrentUserFilter>();
-        app.MapPost("/api/posts/{id:int}/generate-image", GenerateImage).RequireAuthorization().AddEndpointFilter<RequireCurrentUserFilter>();
+        // app.MapPost("/api/posts/{id:int}/generate-image", GenerateImage).RequireAuthorization().AddEndpointFilter<RequireCurrentUserFilter>();
         app.MapPost("/api/posts/{id:int}/upload-image", UploadImage)
             .DisableAntiforgery()
             .RequireAuthorization()
@@ -127,28 +127,28 @@ public static class PostEndpoints
         return Results.NoContent();
     }
 
-    private static async Task<IResult> GenerateImage(
-        int id,
-        GenerateImageRequest? request,
-        ICurrentUserService currentUser,
-        IPostService postService,
-        CancellationToken ct)
-    {
-        try
-        {
-            var post = await postService.GenerateImageAsync(currentUser.UserId!.Value, id, request?.Prompt, ct);
-            if (post == null) return Results.BadRequest(new { message = "Post not found or image generation failed." });
-            return Results.Ok(post);
-        }
-        catch (HttpRequestException ex)
-        {
-            return Results.BadRequest(new { message = ex.Message });
-        }
-        catch (RequestFailedException ex)
-        {
-            return Results.BadRequest(new { message = ex.Message });
-        }
-    }
+    // private static async Task<IResult> GenerateImage(
+    //     int id,
+    //     GenerateImageRequest? request,
+    //     ICurrentUserService currentUser,
+    //     IPostService postService,
+    //     CancellationToken ct)
+    // {
+    //     try
+    //     {
+    //         var post = await postService.GenerateImageAsync(currentUser.UserId!.Value, id, request?.Prompt, ct);
+    //         if (post == null) return Results.BadRequest(new { message = "Post not found or image generation failed." });
+    //         return Results.Ok(post);
+    //     }
+    //     catch (HttpRequestException ex)
+    //     {
+    //         return Results.BadRequest(new { message = ex.Message });
+    //     }
+    //     catch (RequestFailedException ex)
+    //     {
+    //         return Results.BadRequest(new { message = ex.Message });
+    //     }
+    // }
 
     private static async Task<IResult> UploadImage(
         int id,

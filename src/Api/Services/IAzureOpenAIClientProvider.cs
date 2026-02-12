@@ -11,5 +11,5 @@ public interface IAzureOpenAIClientProvider
     AzureOpenAIClient? GetChatClient();
 
     /// <summary>Gets the client for image generation (ImageEndpoint ?? Endpoint, ImageApiKey ?? ApiKey). Returns null if not configured.</summary>
-    AzureOpenAIClient? GetImageClient();
+    // AzureOpenAIClient? GetImageClient();
 }

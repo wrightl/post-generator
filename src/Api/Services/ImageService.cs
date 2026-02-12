@@ -26,52 +26,52 @@ public class ImageService : IImageService
         _httpClientFactory = httpClientFactory;
     }
 
-    public async Task<string?> GenerateAndUploadAsync(string prompt, string fileName, CancellationToken cancellationToken = default)
-    {
-        var azureClient = _clientProvider.GetImageClient();
-        if (azureClient == null)
-            return null;
-        if (string.IsNullOrEmpty(_blobOptions.ConnectionString))
-            return null;
+    // public async Task<string?> GenerateAndUploadAsync(string prompt, string fileName, CancellationToken cancellationToken = default)
+    // {
+    //     var azureClient = _clientProvider.GetImageClient();
+    //     if (azureClient == null)
+    //         return null;
+    //     if (string.IsNullOrEmpty(_blobOptions.ConnectionString))
+    //         return null;
 
-        var imageClient = azureClient.GetImageClient(_openAIOptions.ImageDeploymentName);
-        var options = new ImageGenerationOptions
-        {
-            Size = GeneratedImageSize.W1024xH1024,
-            ResponseFormat = GeneratedImageFormat.Uri,
-        };
+    //     var imageClient = azureClient.GetImageClient(_openAIOptions.ImageDeploymentName);
+    //     var options = new ImageGenerationOptions
+    //     {
+    //         Size = GeneratedImageSize.W1024xH1024,
+    //         ResponseFormat = GeneratedImageFormat.Uri,
+    //     };
 
-        try
-        {
-            var result = await imageClient.GenerateImageAsync(prompt, options, cancellationToken);
-            var image = result.Value;
-            var imageUrl = image.ImageUri?.ToString();
-            if (string.IsNullOrEmpty(imageUrl))
-                return null;
+    //     try
+    //     {
+    //         var result = await imageClient.GenerateImageAsync(prompt, options, cancellationToken);
+    //         var image = result.Value;
+    //         var imageUrl = image.ImageUri?.ToString();
+    //         if (string.IsNullOrEmpty(imageUrl))
+    //             return null;
 
-            var httpClient = _httpClientFactory.CreateClient();
-            var blobClient = new BlobClient(_blobOptions.ConnectionString, _blobOptions.ContainerName, fileName);
-            await using var stream = await httpClient.GetStreamAsync(imageUrl, cancellationToken);
-            await blobClient.UploadAsync(stream, overwrite: true, cancellationToken);
-            return blobClient.Uri.ToString();
-        }
-        catch (RequestFailedException ex)
-        {
-            var message = $"Azure OpenAI images returned {ex.Status} {ex.Message}. {ex.ErrorCode}";
-            if (ex.Status == 404 && (ex.Message?.Contains("DeploymentNotFound", StringComparison.OrdinalIgnoreCase) == true)
-                && string.IsNullOrEmpty(_openAIOptions.ImageEndpoint))
-            {
-                message += " When using separate Azure OpenAI accounts for chat (e.g. West Europe) and images (e.g. Sweden Central), set AzureOpenAI:ImageEndpoint and AzureOpenAI:ImageApiKey to the image account endpoint and key. See infra/deploy-local.sh output for dotnet user-secrets commands.";
-            }
-            else if (ex.Status == 400
-                && (ex.Message?.Contains("content_policy_violation", StringComparison.OrdinalIgnoreCase) == true
-                    || ex.Message?.Contains("ResponsibleAIPolicyViolation", StringComparison.OrdinalIgnoreCase) == true))
-            {
-                message = $"Image generation was blocked by content safety. The prompt may contain text that isn't allowed. Try rephrasing or shortening the prompt: \nprompt: {prompt}";
-            }
-            throw new HttpRequestException(message, ex);
-        }
-    }
+    //         var httpClient = _httpClientFactory.CreateClient();
+    //         var blobClient = new BlobClient(_blobOptions.ConnectionString, _blobOptions.ContainerName, fileName);
+    //         await using var stream = await httpClient.GetStreamAsync(imageUrl, cancellationToken);
+    //         await blobClient.UploadAsync(stream, overwrite: true, cancellationToken);
+    //         return blobClient.Uri.ToString();
+    //     }
+    //     catch (RequestFailedException ex)
+    //     {
+    //         var message = $"Azure OpenAI images returned {ex.Status} {ex.Message}. {ex.ErrorCode}";
+    //         if (ex.Status == 404 && (ex.Message?.Contains("DeploymentNotFound", StringComparison.OrdinalIgnoreCase) == true)
+    //             && string.IsNullOrEmpty(_openAIOptions.ImageEndpoint))
+    //         {
+    //             message += " When using separate Azure OpenAI accounts for chat (e.g. West Europe) and images (e.g. Sweden Central), set AzureOpenAI:ImageEndpoint and AzureOpenAI:ImageApiKey to the image account endpoint and key. See infra/deploy-local.sh output for dotnet user-secrets commands.";
+    //         }
+    //         else if (ex.Status == 400
+    //             && (ex.Message?.Contains("content_policy_violation", StringComparison.OrdinalIgnoreCase) == true
+    //                 || ex.Message?.Contains("ResponsibleAIPolicyViolation", StringComparison.OrdinalIgnoreCase) == true))
+    //         {
+    //             message = $"Image generation was blocked by content safety. The prompt may contain text that isn't allowed. Try rephrasing or shortening the prompt: \nprompt: {prompt}";
+    //         }
+    //         throw new HttpRequestException(message, ex);
+    //     }
+    // }
 
     public async Task<string> UploadAsync(Stream stream, string hint, string contentType, CancellationToken cancellationToken = default)
     {

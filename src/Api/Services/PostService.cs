@@ -125,22 +125,22 @@ public class PostService : IPostService
         return true;
     }
 
-    public async Task<PostDto?> GenerateImageAsync(int userId, int postId, string? prompt, CancellationToken cancellationToken = default)
-    {
-        var post = await _db.Posts.FirstOrDefaultAsync(p => p.Id == postId && p.UserId == userId, cancellationToken);
-        if (post == null) return null;
+    // public async Task<PostDto?> GenerateImageAsync(int userId, int postId, string? prompt, CancellationToken cancellationToken = default)
+    // {
+    //     var post = await _db.Posts.FirstOrDefaultAsync(p => p.Id == postId && p.UserId == userId, cancellationToken);
+    //     if (post == null) return null;
 
-        var effectivePrompt = !string.IsNullOrWhiteSpace(prompt)
-            ? prompt
-            : $"Social media image for post: {post.Content[..Math.Min(500, post.Content.Length)]}";
-        var imageUrl = await _imageService.GenerateAndUploadAsync(effectivePrompt, $"post-{post.Id}-{Guid.NewGuid():N}.png", cancellationToken);
-        if (imageUrl == null) return null;
+    //     var effectivePrompt = !string.IsNullOrWhiteSpace(prompt)
+    //         ? prompt
+    //         : $"Social media image for post: {post.Content[..Math.Min(500, post.Content.Length)]}";
+    //     var imageUrl = await _imageService.GenerateAndUploadAsync(effectivePrompt, $"post-{post.Id}-{Guid.NewGuid():N}.png", cancellationToken);
+    //     if (imageUrl == null) return null;
 
-        post.ImageUrl = imageUrl;
-        post.UpdatedAt = DateTime.UtcNow;
-        await _db.SaveChangesAsync(cancellationToken);
-        return PostMappings.ToDto(post);
-    }
+    //     post.ImageUrl = imageUrl;
+    //     post.UpdatedAt = DateTime.UtcNow;
+    //     await _db.SaveChangesAsync(cancellationToken);
+    //     return PostMappings.ToDto(post);
+    // }
 
     public async Task<PostDto?> SetPostImageUrlAsync(int userId, int postId, string? imageUrl, CancellationToken cancellationToken = default)
     {

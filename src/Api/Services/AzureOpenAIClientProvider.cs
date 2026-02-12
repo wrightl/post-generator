@@ -9,18 +9,18 @@ public class AzureOpenAIClientProvider : IAzureOpenAIClientProvider
 {
     private readonly AzureOpenAIOptions _options;
     private readonly Lazy<AzureOpenAIClient?> _chatClient;
-    private readonly Lazy<AzureOpenAIClient?> _imageClient;
+    // private readonly Lazy<AzureOpenAIClient?> _imageClient;
 
     public AzureOpenAIClientProvider(IOptions<AzureOpenAIOptions> options)
     {
         _options = options.Value;
         _chatClient = new Lazy<AzureOpenAIClient?>(CreateChatClient);
-        _imageClient = new Lazy<AzureOpenAIClient?>(CreateImageClient);
+        // _imageClient = new Lazy<AzureOpenAIClient?>(CreateImageClient);
     }
 
     public AzureOpenAIClient? GetChatClient() => _chatClient.Value;
 
-    public AzureOpenAIClient? GetImageClient() => _imageClient.Value;
+    // public AzureOpenAIClient? GetImageClient() => _imageClient.Value;
 
     private AzureOpenAIClient? CreateChatClient()
     {
@@ -31,16 +31,16 @@ public class AzureOpenAIClientProvider : IAzureOpenAIClientProvider
         return new AzureOpenAIClient(uri, new ApiKeyCredential(_options.ApiKey!));
     }
 
-    private AzureOpenAIClient? CreateImageClient()
-    {
-        var endpoint = !string.IsNullOrEmpty(_options.ImageEndpoint) ? _options.ImageEndpoint : _options.Endpoint;
-        var apiKey = !string.IsNullOrEmpty(_options.ImageEndpoint) && !string.IsNullOrEmpty(_options.ImageApiKey)
-            ? _options.ImageApiKey
-            : _options.ApiKey;
-        if (string.IsNullOrEmpty(endpoint) || string.IsNullOrEmpty(apiKey))
-            return null;
-        if (!Uri.TryCreate(endpoint.TrimEnd('/'), UriKind.Absolute, out var uri) || !uri.Scheme.StartsWith("http", StringComparison.OrdinalIgnoreCase))
-            return null;
-        return new AzureOpenAIClient(uri, new ApiKeyCredential(apiKey!));
-    }
+    // private AzureOpenAIClient? CreateImageClient()
+    // {
+    //     var endpoint = !string.IsNullOrEmpty(_options.ImageEndpoint) ? _options.ImageEndpoint : _options.Endpoint;
+    //     var apiKey = !string.IsNullOrEmpty(_options.ImageEndpoint) && !string.IsNullOrEmpty(_options.ImageApiKey)
+    //         ? _options.ImageApiKey
+    //         : _options.ApiKey;
+    //     if (string.IsNullOrEmpty(endpoint) || string.IsNullOrEmpty(apiKey))
+    //         return null;
+    //     if (!Uri.TryCreate(endpoint.TrimEnd('/'), UriKind.Absolute, out var uri) || !uri.Scheme.StartsWith("http", StringComparison.OrdinalIgnoreCase))
+    //         return null;
+    //     return new AzureOpenAIClient(uri, new ApiKeyCredential(apiKey!));
+    // }
 }
