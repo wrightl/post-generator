@@ -148,11 +148,15 @@ jobs:
         id: provision
         run: azd provision --no-prompt
 
-      - name: Set API URL for frontend
+      - name: Set ACR endpoint and API URL for deploy
         id: api_url
         run: |
           DEPLOYMENT_NAME=$(az deployment group list --resource-group ${{ env.RESOURCE_GROUP }} --query "[0].name" -o tsv 2>/dev/null) || true
           if [ -n "$DEPLOYMENT_NAME" ]; then
+            ACR_LOGIN_SERVER=$(az deployment group show --resource-group ${{ env.RESOURCE_GROUP }} --name "$DEPLOYMENT_NAME" --query "properties.outputs.acrLoginServer.value" -o tsv 2>/dev/null) || true
+            if [ -n "$ACR_LOGIN_SERVER" ]; then
+              azd env set AZURE_CONTAINER_REGISTRY_ENDPOINT "$ACR_LOGIN_SERVER"
+            fi
             API_URL=$(az deployment group show --resource-group ${{ env.RESOURCE_GROUP }} --name "$DEPLOYMENT_NAME" --query "properties.outputs.apiUrl.value" -o tsv 2>/dev/null) || true
             WEB_URL=$(az deployment group show --resource-group ${{ env.RESOURCE_GROUP }} --name "$DEPLOYMENT_NAME" --query "properties.outputs.webUrl.value" -o tsv 2>/dev/null) || true
           fi

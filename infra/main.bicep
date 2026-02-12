@@ -275,8 +275,8 @@ resource apiApp 'Microsoft.App/containerApps@2024-03-01' = {
           { name: 'blob-connection-string', value: 'DefaultEndpointsProtocol=https;AccountName=${storage!.name};EndpointSuffix=${environment().suffixes.storage};AccountKey=${storage!.listKeys().keys[0].value}' }
         ],
         // [{ name: 'openai-image-api-key', value: openaiProdImage!.listKeys().key1 }],
-        firebaseCredentialJsonBase64 != '' ? [{ name: 'firebase-credential-base64', value: firebaseCredentialJsonBase64 }] : [],
-        mailgunApiKey != '' ? [{ name: 'mailgun-api-key', value: mailgunApiKey }] : []
+        [{ name: 'firebase-credential-base64', value: firebaseCredentialJsonBase64 }],
+        [{ name: 'mailgun-api-key', value: mailgunApiKey }]
       )
     }
     template: {
