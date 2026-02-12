@@ -1,23 +1,26 @@
 {
-    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
-    "contentVersion": "1.0.0.0",
-    "parameters": {
-        "baseName": { "value": "postgen" },
-        "environmentName": { "value": "${AZURE_ENV_NAME}" },
-        "location": { "value": "${AZURE_LOCATION}" },
-        "deployImageModel": { "value": "${DEPLOY_IMAGE_MODEL}" },
-        "openAIChatLocation": { "value": "${AZURE_AI_LOCATION}" },
-        "openAIImageLocation": { "value": "${AZURE_IMAGE_LOCATION}" },
-        "sqlAdminLogin": { "value": "${AZURE_SQL_ADMIN_LOGIN}" },
-        "sqlAdminPassword": { "value": "${AZURE_SQL_ADMIN_PASSWORD}" },
-        "firebaseProjectId": { "value": "${FIREBASE_PROJECT_ID}" },
-        "firebaseCredentialJsonBase64": {
-            "value": "${FIREBASE_CREDENTIAL_JSON_BASE64}"
-        },
-        "corsOrigins": { "value": "${CORS_ORIGINS}" },
-        "mailgunApiKey": { "value": "${MAILGUN_API_KEY}" },
-        "mailgunDomain": { "value": "${MAILGUN_DOMAIN}" },
-        "mailgunFromAddress": { "value": "${MAILGUN_FROM_ADDRESS}" },
-        "mailgunFromName": { "value": "${MAILGUN_FROM_NAME}" }
-    }
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "baseName": { "value": "postgen" },
+    "environmentName": { "value": "${AZURE_ENV_NAME}" },
+    "location": { "value": "${AZURE_LOCATION}" },
+    "deployImageModel": { "value": "${DEPLOY_IMAGE_MODEL}" },
+    "openAIChatLocation": { "value": "${AZURE_AI_LOCATION}" },
+    "openAIImageLocation": { "value": "${AZURE_IMAGE_LOCATION}" },
+    "sqlAdminLogin": { "value": "${AZURE_SQL_ADMIN_LOGIN}" },
+    "sqlAdminPassword": { "value": "${AZURE_SQL_ADMIN_PASSWORD}" },
+    "firebaseProjectId": { "value": "${FIREBASE_PROJECT_ID}" },
+    "firebaseCredentialJsonBase64": { "value": "${FIREBASE_CREDENTIAL_JSON_BASE64}" },
+    "firebaseApiKey": { "value": "${NEXT_PUBLIC_FIREBASE_API_KEY}" },
+    "firebaseAuthDomain": { "value": "${NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN}" },
+    "firebaseStorageBucket": { "value": "${NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET}" },
+    "firebaseMessagingSenderId": { "value": "${NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID}" },
+    "firebaseAppId": { "value": "${NEXT_PUBLIC_FIREBASE_APP_ID}" },
+    "corsOrigins": { "value": "${CORS_ORIGINS}" },
+    "mailgunApiKey": { "value": "${MAILGUN_API_KEY}" },
+    "mailgunDomain": { "value": "${MAILGUN_DOMAIN}" },
+    "mailgunFromAddress": { "value": "${MAILGUN_FROM_ADDRESS}" },
+    "mailgunFromName": { "value": "${MAILGUN_FROM_NAME}" }
+  }
 }
