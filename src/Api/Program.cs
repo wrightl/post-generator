@@ -106,15 +106,15 @@ builder.Services.AddAuthorization();
 
 var app = builder.Build();
 
-// Log CORS origins at startup (Warning so it appears even when default log level is Warning in prod)
-var corsSection = app.Configuration.GetSection("Cors:Origins").Get<string[]>();
-var corsStr = app.Configuration["Cors:Origins"] ?? app.Configuration["Cors__Origins"];
-var loggedOrigins = corsSection?.Length > 0
-    ? string.Join(", ", corsSection.Where(o => !string.IsNullOrWhiteSpace(o)).Select(o => o.Trim()))
-    : string.IsNullOrWhiteSpace(corsStr)
-        ? "http://localhost:3000 (default)"
-        : string.Join(", ", corsStr.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Where(o => !string.IsNullOrWhiteSpace(o)).Select(o => o.Trim()));
-app.Logger.LogWarning("CORS allowed origins: {Origins}", loggedOrigins);
+// // Log CORS origins at startup (Warning so it appears even when default log level is Warning in prod)
+// var corsSection = app.Configuration.GetSection("Cors:Origins").Get<string[]>();
+// var corsStr = app.Configuration["Cors:Origins"] ?? app.Configuration["Cors__Origins"];
+// var loggedOrigins = corsSection?.Length > 0
+//     ? string.Join(", ", corsSection.Where(o => !string.IsNullOrWhiteSpace(o)).Select(o => o.Trim()))
+//     : string.IsNullOrWhiteSpace(corsStr)
+//         ? "http://localhost:3000 (default)"
+//         : string.Join(", ", corsStr.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Where(o => !string.IsNullOrWhiteSpace(o)).Select(o => o.Trim()));
+// app.Logger.LogWarning("CORS allowed origins: {Origins}", loggedOrigins);
 
 // Run migrations at startup (required for app to function)
 using (var scope = app.Services.CreateScope())
@@ -152,7 +152,7 @@ if (!app.Environment.IsDevelopment())
     app.UseHttpsRedirection();
 }
 app.UseMiddleware<SecurityHeadersMiddleware>();
-app.UseCors();
+// app.UseCors();
 app.UseAuthentication();
 app.UseAuthorization();
 app.UseRateLimiter();
