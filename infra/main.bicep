@@ -99,7 +99,7 @@ resource logAnalytics 'Microsoft.OperationalInsights/workspaces@2022-10-01' = if
   }
 }
 
-resource acr 'Microsoft.ContainerRegistry/registries@2023-11-01-preview' = if (!localDevOnly && deployThisTime) {
+resource acr 'Microsoft.ContainerRegistry/registries@2023-11-01-preview' = if (!localDevOnly) {
   name: acrName
   location: location
   sku: { name: 'Basic' }
@@ -130,7 +130,7 @@ resource deploymentStorageContainer 'Microsoft.Storage/storageAccounts/blobServi
   name: deploymentStorageContainerName
 }
 
-resource sqlServer 'Microsoft.Sql/servers@2022-05-01-preview' = if (!localDevOnly && deployThisTime) {
+resource sqlServer 'Microsoft.Sql/servers@2022-05-01-preview' = if (!localDevOnly) {
   name: sqlServerName
   location: location
   properties: {
@@ -140,7 +140,7 @@ resource sqlServer 'Microsoft.Sql/servers@2022-05-01-preview' = if (!localDevOnl
   }
 }
 
-resource sqlDb 'Microsoft.Sql/servers/databases@2022-05-01-preview' = if (!localDevOnly && deployThisTime) {
+resource sqlDb 'Microsoft.Sql/servers/databases@2022-05-01-preview' = if (!localDevOnly) {
   parent: sqlServer
   name: sqlDatabaseName
   location: location
@@ -150,7 +150,7 @@ resource sqlDb 'Microsoft.Sql/servers/databases@2022-05-01-preview' = if (!local
   }
 }
 
-resource sqlFirewallRule 'Microsoft.Sql/servers/firewallRules@2022-05-01-preview' = if (!localDevOnly && deployThisTime) {
+resource sqlFirewallRule 'Microsoft.Sql/servers/firewallRules@2022-05-01-preview' = if (!localDevOnly) {
   parent: sqlServer
   name: 'AllowAzureServices'
   properties: {
@@ -237,7 +237,7 @@ resource openaiProdImageDeployment 'Microsoft.CognitiveServices/accounts/deploym
   }
 }
 
-resource containerAppEnv 'Microsoft.App/managedEnvironments@2024-03-01' = if (!localDevOnly && deployThisTime) {
+resource containerAppEnv 'Microsoft.App/managedEnvironments@2024-03-01' = if (!localDevOnly) {
   name: containerAppEnvName
   location: location
   properties: {
@@ -251,7 +251,7 @@ resource containerAppEnv 'Microsoft.App/managedEnvironments@2024-03-01' = if (!l
   }
 }
 
-resource apiApp 'Microsoft.App/containerApps@2024-03-01' = if (!localDevOnly && deployThisTime) {
+resource apiApp 'Microsoft.App/containerApps@2024-03-01' = if (!localDevOnly) {
   name: apiAppName
   location: location
   properties: {
@@ -429,19 +429,19 @@ resource functionApp 'Microsoft.Web/sites@2024-04-01' = if (!localDevOnly && dep
 // var openAIImageAccountNameLocal = localDevOnly && deployImageModel ? openaiImageAccount!.name : ''
 // var openAIImageAccountNameProd = openaiProdImage.?name ?? ''
 
-// output acrLoginServer string = !localDevOnly ? acr!.properties.loginServer : ''
-// output acrName string = !localDevOnly ? acr!.name : ''
-// output apiAppName string = !localDevOnly ? apiApp!.name : ''
-// output apiAppFqdn string = !localDevOnly ? apiApp!.properties.configuration.ingress.fqdn : ''
-// output apiUrl string = !localDevOnly ? 'https://${apiApp!.properties.configuration.ingress.fqdn}' : ''
+output acrLoginServer string = !localDevOnly ? acr!.properties.loginServer : ''
+output acrName string = !localDevOnly ? acr!.name : ''
+output apiAppName string = !localDevOnly ? apiApp!.name : ''
+output apiAppFqdn string = !localDevOnly ? apiApp!.properties.configuration.ingress.fqdn : ''
+output apiUrl string = !localDevOnly ? 'https://${apiApp!.properties.configuration.ingress.fqdn}' : ''
 // output webAppName string = !localDevOnly ? webApp!.name : ''
 // output webAppFqdn string = !localDevOnly ? webApp!.properties.configuration.ingress.fqdn : ''
 // output webUrl string = !localDevOnly ? 'https://${webApp!.properties.configuration.ingress.fqdn}' : ''
-// // output functionAppName string = !localDevOnly ? functionApp.name : ''
+// output functionAppName string = !localDevOnly ? functionApp.name : ''
 // output openAIEndpoint string = localDevOnly ? openaiChatAccount!.properties.endpoint : openaiProdChat!.properties.endpoint
 // output openAIImageEndpoint string = localDevOnly ? openAIImageEndpointLocal : openAIImageEndpointProd
 // output openAIImageAccountName string = localDevOnly ? openAIImageAccountNameLocal : openAIImageAccountNameProd
 // output openAIChatAccountName string = localDevOnly ? openaiChatAccount!.name : openaiProdChat!.name
 // output storageAccountName string = !localDevOnly ? storage!.name : ''
-// // output staticWebAppName string = !localDevOnly ? staticWebApp.name : ''
-// output resourceGroupName string = resourceGroup().name
+// output staticWebAppName string = !localDevOnly ? staticWebApp.name : ''
+output resourceGroupName string = resourceGroup().name
