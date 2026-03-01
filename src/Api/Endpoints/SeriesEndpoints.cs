@@ -43,12 +43,19 @@ public static class SeriesEndpoints
         GenerateSeriesRequest req,
         ICurrentUserService currentUser,
         ISeriesService seriesService,
+        ILoggerFactory loggerFactory,
         CancellationToken ct)
     {
         var pipe = new Pipe();
         var userId = currentUser.UserId!.Value;
+        var logger = loggerFactory.CreateLogger("PostGenerator.Api.Endpoints.SeriesEndpoints");
 
-        _ = WriteStreamAsync(pipe.Writer, seriesService, userId, req, ct);
+        var writeTask = WriteStreamAsync(pipe.Writer, seriesService, userId, req, ct);
+        writeTask.ContinueWith(t =>
+        {
+            if (t.IsFaulted && t.Exception != null)
+                logger.LogError(t.Exception, "Series generate stream writer failed");
+        }, TaskContinuationOptions.OnlyOnFaulted);
 
         return Results.Stream(pipe.Reader.AsStream(), "application/x-ndjson");
     }

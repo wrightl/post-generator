@@ -1,8 +1,7 @@
 name: CD
 
 on:
-  push:
-    branches: [main]
+  workflow_dispatch:
 
 env:
   RESOURCE_GROUP: ${{ vars.RESOURCE_GROUP || 'rg-postgenerator-dev' }}

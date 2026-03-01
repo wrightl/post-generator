@@ -55,12 +55,19 @@ public static class UserEndpoints
         CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(platform)) return Results.BadRequest();
-        var ok = await userService.SetCredentialAsync(
-            currentUser.UserId!.Value,
-            platform.Trim(),
-            request.Credentials,
-            ct);
-        if (!ok) return Results.BadRequest();
-        return Results.NoContent();
+        try
+        {
+            var ok = await userService.SetCredentialAsync(
+                currentUser.UserId!.Value,
+                platform.Trim(),
+                request.Credentials,
+                ct);
+            if (!ok) return Results.BadRequest();
+            return Results.NoContent();
+        }
+        catch (ArgumentException ex) when (ex.ParamName == "credentials")
+        {
+            return Results.BadRequest(ex.Message);
+        }
     }
 }

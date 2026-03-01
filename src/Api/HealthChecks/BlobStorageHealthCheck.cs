@@ -7,29 +7,34 @@ namespace PostGenerator.Api.HealthChecks;
 
 public class BlobStorageHealthCheck : IHealthCheck
 {
+    private readonly BlobServiceClient _blobServiceClient;
     private readonly BlobStorageOptions _options;
+    private readonly ILogger<BlobStorageHealthCheck> _logger;
 
-    public BlobStorageHealthCheck(IOptions<BlobStorageOptions> options)
+    public BlobStorageHealthCheck(BlobServiceClient blobServiceClient, IOptions<BlobStorageOptions> options, ILogger<BlobStorageHealthCheck> logger)
     {
+        _blobServiceClient = blobServiceClient;
         _options = options.Value;
+        _logger = logger;
     }
 
     public async Task<HealthCheckResult> CheckHealthAsync(HealthCheckContext context, CancellationToken cancellationToken = default)
     {
-        if (string.IsNullOrEmpty(_options.ConnectionString))
+        if (string.IsNullOrEmpty(_options.ContainerName))
             return HealthCheckResult.Healthy("Blob storage not configured (optional).");
 
         try
         {
-            var client = new BlobContainerClient(_options.ConnectionString, _options.ContainerName);
-            var exists = await client.ExistsAsync(cancellationToken);
+            var containerClient = _blobServiceClient.GetBlobContainerClient(_options.ContainerName);
+            var exists = await containerClient.ExistsAsync(cancellationToken);
             return exists.Value
                 ? HealthCheckResult.Healthy("Blob container is accessible.")
                 : HealthCheckResult.Degraded("Blob container not found.");
         }
         catch (Exception ex)
         {
-            return HealthCheckResult.Unhealthy("Blob storage check failed.", ex);
+            _logger.LogWarning(ex, "Blob storage check failed: {Message}", ex.Message);
+            return HealthCheckResult.Degraded("Blob storage temporarily unavailable.", ex);
         }
     }
 }

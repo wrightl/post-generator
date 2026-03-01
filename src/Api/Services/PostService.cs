@@ -170,11 +170,22 @@ public class PostService : IPostService
         var now = DateTime.UtcNow;
         var baseQ = _db.Posts.AsNoTracking().Where(p => p.UserId == userId);
 
-        var total = await baseQ.CountAsync(cancellationToken);
-        var draftCount = await baseQ.CountAsync(p => p.Status == PostStatus.Draft, cancellationToken);
-        var scheduledCount = await baseQ.CountAsync(p => p.Status == PostStatus.Scheduled, cancellationToken);
-        var publishedCount = await baseQ.CountAsync(p => p.Status == PostStatus.Published, cancellationToken);
-        var failedCount = await baseQ.CountAsync(p => p.Status == PostStatus.Failed, cancellationToken);
+        var counts = await baseQ
+            .GroupBy(p => 1)
+            .Select(g => new
+            {
+                Total = g.Count(),
+                Draft = g.Count(p => p.Status == PostStatus.Draft),
+                Scheduled = g.Count(p => p.Status == PostStatus.Scheduled),
+                Published = g.Count(p => p.Status == PostStatus.Published),
+                Failed = g.Count(p => p.Status == PostStatus.Failed),
+            })
+            .FirstOrDefaultAsync(cancellationToken);
+        var total = counts?.Total ?? 0;
+        var draftCount = counts?.Draft ?? 0;
+        var scheduledCount = counts?.Scheduled ?? 0;
+        var publishedCount = counts?.Published ?? 0;
+        var failedCount = counts?.Failed ?? 0;
 
         var byPlatformRows = await baseQ
             .GroupBy(p => p.Platform)

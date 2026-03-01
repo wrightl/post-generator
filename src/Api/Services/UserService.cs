@@ -111,6 +111,8 @@ public class UserService : IUserService
             }
         }
         var json = JsonSerializer.Serialize(dict);
+        if (json.Length > 8000)
+            throw new ArgumentException("Credential data exceeds maximum size of 8000 characters.", nameof(credentials));
         if (existing != null)
         {
             existing.CredentialJson = json;

@@ -7,5 +7,7 @@
   <Project Path="src/Core/Core.csproj" />
   <Project Path="src/Api/Api.csproj" />
   <Project Path="src/Function/Function.csproj" />
+  <Project Path="src/PostGenerator.AppHost/PostGenerator.AppHost.csproj" />
+  <Project Path="src/PostGenerator.ServiceDefaults/PostGenerator.ServiceDefaults.csproj" />
   <Project Path="src/Api.Tests/Api.Tests.csproj" />
 </Solution>

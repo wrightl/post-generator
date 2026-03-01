@@ -1,10 +1,7 @@
-using System.Net.Http;
-using Azure;
 using PostGenerator.Api.EndpointFilters;
 using PostGenerator.Api.Models;
 using PostGenerator.Api.Services;
 using PostGenerator.Api.Validators;
-using PostGenerator.Core;
 
 namespace PostGenerator.Api.Endpoints;
 
@@ -33,6 +30,27 @@ public static class PostEndpoints
     {
         "image/jpeg", "image/jpg", "image/png", "image/webp", "image/gif",
     };
+
+    private static readonly byte[] JpegMagic = { 0xFF, 0xD8, 0xFF };
+    private static readonly byte[] PngMagic = { 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A };
+    private static readonly byte[] GifMagic87 = { 0x47, 0x49, 0x46, 0x38, 0x37, 0x61 }; // GIF87a
+    private static readonly byte[] GifMagic89 = { 0x47, 0x49, 0x46, 0x38, 0x39, 0x61 }; // GIF89a
+    private static readonly byte[] WebpMagicRiff = { 0x52, 0x49, 0x46, 0x46 }; // RIFF
+    private static readonly byte[] WebpMagicWebp = { 0x57, 0x45, 0x42, 0x50 }; // WEBP at offset 8
+
+    private static bool MatchesImageMagicBytes(byte[] header, string contentType)
+    {
+        if (header.Length < 12) return false;
+        if (contentType.StartsWith("image/jpeg", StringComparison.OrdinalIgnoreCase) || contentType.StartsWith("image/jpg", StringComparison.OrdinalIgnoreCase))
+            return header.AsSpan(0, 3).SequenceEqual(JpegMagic);
+        if (contentType.StartsWith("image/png", StringComparison.OrdinalIgnoreCase))
+            return header.AsSpan(0, 8).SequenceEqual(PngMagic);
+        if (contentType.StartsWith("image/gif", StringComparison.OrdinalIgnoreCase))
+            return header.AsSpan(0, 6).SequenceEqual(GifMagic87) || header.AsSpan(0, 6).SequenceEqual(GifMagic89);
+        if (contentType.StartsWith("image/webp", StringComparison.OrdinalIgnoreCase))
+            return header.AsSpan(0, 4).SequenceEqual(WebpMagicRiff) && header.AsSpan(8, 4).SequenceEqual(WebpMagicWebp);
+        return false;
+    }
 
     private const int DefaultPageSize = 20;
     private const int MaxPageSize = 100;
@@ -169,6 +187,14 @@ public static class PostEndpoints
             return Results.BadRequest(new { message = "File size must be 5MB or less." });
         if (!AllowedImageContentTypes.Contains(file.ContentType))
             return Results.BadRequest(new { message = "Allowed types: image/jpeg, image/png, image/webp, image/gif." });
+
+        var header = new byte[12];
+        await using (var probe = file.OpenReadStream())
+        {
+            var read = await probe.ReadAtLeastAsync(header.AsMemory(0, 12), 12, throwOnEndOfStream: false, ct);
+            if (read < 12 || !MatchesImageMagicBytes(header, file.ContentType))
+                return Results.BadRequest(new { message = "File content does not match the declared image type." });
+        }
 
         try
         {

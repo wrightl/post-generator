@@ -1,7 +1,7 @@
-using System.Net.Http;
 using System.Text.Json;
 using Azure;
 using Microsoft.Extensions.Options;
+using OpenAI;
 using OpenAI.Chat;
 using PostGenerator.Api.Options;
 
@@ -9,16 +9,16 @@ namespace PostGenerator.Api.Services;
 
 public class PostGenerationService : IPostGenerationService
 {
-    private readonly IAzureOpenAIClientProvider _clientProvider;
+    private readonly OpenAIClient _openAIClient;
     private readonly AzureOpenAIOptions _options;
     private readonly ILogger<PostGenerationService> _logger;
 
     public PostGenerationService(
-        IAzureOpenAIClientProvider clientProvider,
+        OpenAIClient openAIClient,
         IOptions<AzureOpenAIOptions> options,
         ILogger<PostGenerationService> logger)
     {
-        _clientProvider = clientProvider;
+        _openAIClient = openAIClient;
         _options = options.Value;
         _logger = logger;
     }
@@ -59,25 +59,22 @@ public class PostGenerationService : IPostGenerationService
 
     private async Task<string?> CallChatCompletionAsync(string systemPrompt, string userPrompt, int maxTokens, CancellationToken cancellationToken)
     {
-        var azureClient = _clientProvider.GetChatClient();
-        if (azureClient == null)
-            return null;
+        ChatClient chatClient = _openAIClient.GetChatClient("openai-chat-deployment");
 
-        var chatClient = azureClient.GetChatClient(_options.ChatDeploymentName);
         var messages = new ChatMessage[]
         {
             new SystemChatMessage(systemPrompt),
             new UserChatMessage(userPrompt),
         };
-        var completionOptions = new ChatCompletionOptions
-        {
-            MaxOutputTokenCount = maxTokens,
-            Temperature = 0.7f,
-        };
+        // var completionOptions = new ChatCompletionOptions
+        // {
+        //     // MaxOutputTokenCount = maxTokens,
+        //     Temperature = 0.7f,
+        // };
 
         try
         {
-            var completion = await chatClient.CompleteChatAsync(messages, completionOptions, cancellationToken);
+            var completion = await chatClient.CompleteChatAsync(messages, cancellationToken: cancellationToken);
             var content = completion.Value.Content;
             if (content == null || content.Count == 0)
                 return null;

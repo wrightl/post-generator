@@ -25,6 +25,8 @@ public class PublishGeneratedSeriesRequestValidator : AbstractValidator<PublishG
         RuleForEach(x => x.GeneratedPosts).ChildRules(post =>
         {
             post.RuleFor(p => p.Content).NotEmpty().MaximumLength(10_000);
+            post.RuleFor(p => p.Script).MaximumLength(10_000);
+            post.RuleFor(p => p.MetadataJson).MaximumLength(50_000);
         });
     }
 }

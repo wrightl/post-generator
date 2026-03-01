@@ -37,7 +37,7 @@ public class TriggerPublishFunction
             _logger.LogError(ex, "Publish run failed");
             var response = req.CreateResponse(HttpStatusCode.InternalServerError);
             response.Headers.Add("Content-Type", "application/json; charset=utf-8");
-            var body = JsonSerializer.Serialize(new { message = ex.Message });
+            var body = JsonSerializer.Serialize(new { message = "An error occurred while processing the request." });
             await response.WriteStringAsync(body);
             return response;
         }

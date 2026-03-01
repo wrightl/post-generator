@@ -10,8 +10,8 @@ public sealed class RequireCurrentUserFilter : IEndpointFilter
 {
     public async ValueTask<object?> InvokeAsync(EndpointFilterInvocationContext context, EndpointFilterDelegate next)
     {
-        var currentUser = context.HttpContext.RequestServices.GetService<ICurrentUserService>();
-        if (currentUser == null || !currentUser.UserId.HasValue)
+        var currentUser = context.HttpContext.RequestServices.GetRequiredService<ICurrentUserService>();
+        if (!currentUser.UserId.HasValue)
             return Results.Unauthorized();
         return await next(context);
     }

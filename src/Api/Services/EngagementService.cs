@@ -1,6 +1,7 @@
 using System.Net.Http.Json;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 using PostGenerator.Api.Data;
 using PostGenerator.Api.Models;
 using PostGenerator.Core;
@@ -9,14 +10,19 @@ namespace PostGenerator.Api.Services;
 
 public class EngagementService : IEngagementService
 {
+    private static readonly TimeSpan BlueskySessionCacheTtl = TimeSpan.FromMinutes(5);
+    private const string BlueskySessionCacheKeyPrefix = "bluesky_jwt:";
+
     private readonly AppDbContext _db;
     private readonly IHttpClientFactory _httpClientFactory;
+    private readonly IMemoryCache _cache;
     private readonly ILogger<EngagementService> _logger;
 
-    public EngagementService(AppDbContext db, IHttpClientFactory httpClientFactory, ILogger<EngagementService> logger)
+    public EngagementService(AppDbContext db, IHttpClientFactory httpClientFactory, IMemoryCache cache, ILogger<EngagementService> logger)
     {
         _db = db;
         _httpClientFactory = httpClientFactory;
+        _cache = cache;
         _logger = logger;
     }
 
@@ -45,8 +51,9 @@ public class EngagementService : IEngagementService
         {
             credentials = JsonSerializer.Deserialize<Dictionary<string, string>>(cred);
         }
-        catch
+        catch (JsonException ex)
         {
+            _logger.LogWarning(ex, "Invalid credential JSON for user {UserId} platform {Platform}", userId, post.Platform);
             return null;
         }
         if (credentials == null || credentials.Count == 0) return null;
@@ -63,7 +70,7 @@ public class EngagementService : IEngagementService
                     (views, likes, comments) = await FetchInstagramEngagementAsync(post.ExternalPostId, credentials, cancellationToken);
                     break;
                 case PostPlatform.Bluesky:
-                    (views, likes, comments) = await FetchBlueskyEngagementAsync(post.ExternalPostId, credentials, cancellationToken);
+                    (views, likes, comments) = await FetchBlueskyEngagementAsync(userId, post.ExternalPostId, credentials, cancellationToken);
                     break;
                 case PostPlatform.LinkedIn:
                 case PostPlatform.TikTok:
@@ -147,21 +154,29 @@ public class EngagementService : IEngagementService
         return (views, likes, comments);
     }
 
-    private async Task<(int? Views, int? Likes, int? Comments)> FetchBlueskyEngagementAsync(string postUri, IReadOnlyDictionary<string, string> credentials, CancellationToken ct)
+    private async Task<(int? Views, int? Likes, int? Comments)> FetchBlueskyEngagementAsync(int userId, string postUri, IReadOnlyDictionary<string, string> credentials, CancellationToken ct)
     {
         var handle = credentials.TryGetValue("Handle", out var h) ? h : null;
         var appPassword = credentials.TryGetValue("AppPassword", out var p) ? p : null;
         var pdsUrl = (credentials.TryGetValue("PdsUrl", out var u) ? u : null)?.TrimEnd('/') ?? "https://bsky.social";
         if (string.IsNullOrEmpty(handle) || string.IsNullOrEmpty(appPassword)) return (null, null, null);
 
-        var client = _httpClientFactory.CreateClient();
-        var sessionUrl = $"{pdsUrl}/xrpc/com.atproto.server.createSession";
-        var sessionBody = new { identifier = handle, password = appPassword };
-        using var sessionResp = await client.PostAsJsonAsync(sessionUrl, sessionBody, ct);
-        sessionResp.EnsureSuccessStatusCode();
-        var sessionJson = await sessionResp.Content.ReadFromJsonAsync<JsonElement>(cancellationToken: ct);
-        var accessJwt = sessionJson.GetProperty("accessJwt").GetString();
+        var cacheKey = $"{BlueskySessionCacheKeyPrefix}{userId}:Bluesky";
+        var accessJwt = await _cache.GetOrCreateAsync(cacheKey, async entry =>
+        {
+            entry.AbsoluteExpirationRelativeToNow = BlueskySessionCacheTtl;
+            var client = _httpClientFactory.CreateClient();
+            var sessionUrl = $"{pdsUrl}/xrpc/com.atproto.server.createSession";
+            var sessionBody = new { identifier = handle, password = appPassword };
+            using var sessionResp = await client.PostAsJsonAsync(sessionUrl, sessionBody, ct);
+            sessionResp.EnsureSuccessStatusCode();
+            var sessionJson = await sessionResp.Content.ReadFromJsonAsync<JsonElement>(cancellationToken: ct);
+            return sessionJson.GetProperty("accessJwt").GetString();
+        });
+
         if (string.IsNullOrEmpty(accessJwt)) return (null, null, null);
+
+        var client = _httpClientFactory.CreateClient();
 
         const int maxPages = 10;
         int likeCount = 0;
