@@ -2,19 +2,7 @@
 # https://learn.microsoft.com/azure/developer/azure-developer-cli/azd-schema
 name: postgenerator
 services:
-  api:
-    project: .
-    language: docker
-    host: containerapp
-    docker:
-      path: ./Dockerfile.api
-  web:
-    project: src/Web
-    language: docker
-    host: containerapp
-  function:
-    project: src/Function
+  app:
     language: dotnet
-    host: function
-infra:
-  path: infra
+    project: ./src/PostGenerator.AppHost/PostGenerator.AppHost.csproj
+    host: containerapp
