@@ -24,12 +24,12 @@ jobs:
       AZURE_LOCATION: ${{ vars.AZURE_LOCATION }}
       AZURE_ENV_NAME: ${{ vars.AZURE_ENV_NAME }}
       AZURE_POSTGENERATOR_PASSWORD: ${{ secrets.SQL_ADMIN_PASSWORD }}
-      FIREBASE_PROJECT_ID: ${{ vars.FIREBASE_PROJECT_ID }}
-      FIREBASE_CREDENTIAL_JSON_BASE64: ${{ secrets.FIREBASE_CREDENTIAL_JSON_BASE64 }}
-      MAILGUN_API_KEY: ${{ secrets.MAILGUN_API_KEY }}
-      MAILGUN_DOMAIN: ${{ vars.MAILGUN_DOMAIN }}
-      MAILGUN_FROM_ADDRESS: ${{ vars.MAILGUN_FROM_ADDRESS }}
-      MAILGUN_FROM_NAME: ${{ vars.MAILGUN_FROM_NAME }}
+      AZURE_FIREBASE_PROJECT_ID: ${{ vars.FIREBASE_PROJECT_ID }}
+      AZURE_FIREBASE_CREDENTIALS_JSON: ${{ secrets.FIREBASE_CREDENTIAL_JSON_BASE64 }}
+      AZURE_MAILGUN_API_KEY: ${{ secrets.MAILGUN_API_KEY }}
+      AZURE_MAILGUN_DOMAIN: ${{ vars.MAILGUN_DOMAIN }}
+      AZURE_MAILGUN_FROM_ADDRESS: ${{ vars.MAILGUN_FROM_ADDRESS }}
+      AZURE_MAILGUN_FROM_NAME: ${{ vars.MAILGUN_FROM_NAME }}
       NEXT_PUBLIC_FIREBASE_API_KEY: ${{ vars.NEXT_PUBLIC_FIREBASE_API_KEY }}
       NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: ${{ vars.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN }}
       NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: ${{ vars.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET }}
@@ -41,7 +41,7 @@ jobs:
 
       - name: Install azd
         uses: Azure/setup-azd@v2
-        
+
       - name: Log in with Azure (Federated Credentials)
         run: |
           azd auth login `
@@ -49,35 +49,6 @@ jobs:
             --federated-credential-provider "github" `
             --tenant-id "$Env:AZURE_TENANT_ID"
         shell: pwsh
-
-      - name: Configure azd environment
-        run: |
-          set -e
-          SUB_ID=$(az account show --query id -o tsv)
-          azd env new "$AZURE_ENV_NAME" --subscription "$SUB_ID" --location "$AZURE_LOCATION" 2>/dev/null || true
-          azd env select "$AZURE_ENV_NAME"
-
-          # Core infra settings (for completeness, if used by infra)
-          azd env set AZURE_LOCATION "$AZURE_LOCATION"
-          azd env set AZURE_SUBSCRIPTION_ID "$AZURE_SUBSCRIPTION_ID"
-
-          # Aspire parameters from AppHost.cs
-          # SQL admin / server password (parameter: "postgenerator-password")
-          azd env set postgenerator-password "$AZURE_POSTGENERATOR_PASSWORD"
-
-          # Firebase (parameter: "firebase-project-id" & "firebase-credentials-json")
-          azd env set firebase-project-id "$FIREBASE_PROJECT_ID"
-          azd env set firebase-credentials-json "$FIREBASE_CREDENTIAL_JSON_BASE64"
-
-          # Mailgun (parameters: "mailgun-domain", "mailgun-from-address", "mailgun-from-name", "mailgun-api-key")
-          azd env set mailgun-domain "$MAILGUN_DOMAIN"
-          azd env set mailgun-from-address "$MAILGUN_FROM_ADDRESS"
-          azd env set mailgun-from-name "$MAILGUN_FROM_NAME"
-          azd env set mailgun-api-key "$MAILGUN_API_KEY"
-
-          # Optional: default scaling for container apps (parameter: "minReplicas")
-          azd env set minReplicas "1"
-
 
       - name: Provision Infrastructure
         run: azd provision --no-prompt
