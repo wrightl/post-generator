@@ -10,13 +10,15 @@ var speechRegion = "westeurope";
 var documentstorageName = "documentstorage";
 var blobName = "blobs";
 var openaiName = "openai";
-var chatModelName = "gpt-5-mini";
-var chatModelVersion = "2025-08-07";
+// var chatModelName = "gpt-5-mini";
+// var chatModelVersion = "2025-08-07";
 var modelSkuName = "GlobalStandard";
 var sqlServerName = $"{appName}";
 var sqlDbName = $"{appName}db";
 var defaultMailgunFromName = "Post Generator";
 var defaultMailgunFromAddress = "noreply@example.com";
+var defaultChatModelName = "gpt-4.1-mini";
+var defaultChatModelVersion = "2025-04-14";
 
 // Variables & secrets
 var replicas = builder.AddParameter("minReplicas");
@@ -27,6 +29,10 @@ var certificateNameApiFromConfig = builder.Configuration["CERTIFICATE_NAME_API"]
 var certificateNameAppFromConfig = builder.Configuration["CERTIFICATE_NAME_APP"] ?? "";
 var customDomainApiFromConfig = builder.Configuration["CUSTOMDOMAIN_API"] ?? "";
 var customDomainAppFromConfig = builder.Configuration["CUSTOMDOMAIN_APP"] ?? "";
+
+var chatModelName = builder.Configuration["CHAT_MODEL_NAME"] ?? defaultChatModelName;
+var chatModelVersion = builder.Configuration["CHAT_MODEL_VERSION"] ?? defaultChatModelVersion;
+
 var customDomainApi = builder.AddParameter("customDomainApi", customDomainApiFromConfig, publishValueAsDefault: true);
 var certificateNameApi = builder.AddParameter("certificateNameApi", value: certificateNameApiFromConfig, publishValueAsDefault: true);
 var customDomainApp = builder.AddParameter("customDomainApp", customDomainAppFromConfig, publishValueAsDefault: true);
