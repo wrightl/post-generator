@@ -1,7 +1,10 @@
 using Azure.Core;
 using Azure.Provisioning.CognitiveServices;
 
-var builder = DistributedApplication.CreateBuilder(args);
+var builder = DistributedApplication.CreateBuilder(new DistributedApplicationOptions
+{
+    DisableDashboard = true
+});
 
 var apiName = "postgenerator-api";
 var frontendName = "Web";

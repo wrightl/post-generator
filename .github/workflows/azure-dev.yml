@@ -63,6 +63,12 @@ jobs:
             --tenant-id "$Env:AZURE_TENANT_ID"
         shell: pwsh
 
+      - name: Register Azure Resource Providers
+        run: |
+          az provider register --namespace Microsoft.ContainerInstance --wait
+          az provider register --namespace Microsoft.Storage --wait
+        shell: bash
+
       - name: Provision Infrastructure
         run: azd provision --no-prompt
 
