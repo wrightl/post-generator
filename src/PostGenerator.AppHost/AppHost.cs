@@ -48,25 +48,6 @@ var mailgunApiKey = builder.AddParameter("mailgun-api-key", secret: true);
 // App Container Environment
 builder.AddAzureContainerAppEnvironment($"{appName}-environment");
 
-// Azure OpenAI
-var openai = builder.AddAzureOpenAI(openaiName).ConfigureInfrastructure(infra =>
-{
-    var openaiService = infra.GetProvisionableResources()
-                             .OfType<CognitiveServicesAccount>()
-                             .Single();
-    openaiService.Location = new AzureLocation(speechRegion);
-});
-
-// Chat deployment
-openai.AddDeployment(
-    name: $"{openaiName}-chat-deployment",
-    modelVersion: chatModelVersion,
-    modelName: chatModelName)
-    .WithProperties(deployment =>
-    {
-        deployment.SkuName = modelSkuName;
-    });
-
 // azure storage
 var documentStorage = builder.AddAzureStorage(documentstorageName)
                             .RunAsEmulator(azurite =>
@@ -77,7 +58,6 @@ var documentStorage = builder.AddAzureStorage(documentstorageName)
 
 var apiService = builder.AddProject<Projects.Api>(apiName)
                         .WithExternalHttpEndpoints()
-                        .WithReference(openai)
                         .WithReference(documentStorage)
                         .WithEnvironment("Firebase__ProjectId", firebaseProjectId)
                         .WithEnvironment("Firebase__CredentialJsonBase64", firebaseCredentialsJson)
@@ -111,6 +91,14 @@ if (builder.ExecutionContext.IsPublishMode)
     // var nextPublicLaunchDarklyClientId = builder.AddParameter("next-public-launchdarkly-client-id", secret: true);
     // var googleMapsApiKey = builder.AddParameter("next-public-google-maps-api-key", secret: true);
 
+    // openai existing - this is a temporary measure until the azure subscription quota increases
+    var existingOpenAIName = builder.AddParameter("existing-openai-name");
+    var existingOpenAIResourceGroup = builder.AddParameter("existing-openai-resource-group");
+    var openai = builder.AddAzureOpenAI(openaiName)
+        .AsExisting(existingOpenAIName, existingOpenAIResourceGroup);
+
+    apiService.WithReference(openai);
+
     // sql azure
     var azureSql = builder.AddAzureSqlServer(sqlServerName);
 
@@ -136,6 +124,27 @@ if (builder.ExecutionContext.IsPublishMode)
 }
 else
 {
+    // Azure OpenAI
+    var openai = builder.AddAzureOpenAI(openaiName).ConfigureInfrastructure(infra =>
+    {
+        var openaiService = infra.GetProvisionableResources()
+                                 .OfType<CognitiveServicesAccount>()
+                                 .Single();
+        openaiService.Location = new AzureLocation(speechRegion);
+    });
+
+    // Chat deployment
+    openai.AddDeployment(
+        name: $"{openaiName}-chat-deployment",
+        modelVersion: chatModelVersion,
+        modelName: chatModelName)
+        .WithProperties(deployment =>
+        {
+            deployment.SkuName = modelSkuName;
+        });
+
+    apiService.WithReference(openai);
+
     // sql server
     var sql = builder.AddSqlServer(sqlServerName, password: sqlPassword, port: 49977)
         .WithLifetime(ContainerLifetime.Persistent)
