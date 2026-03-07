@@ -55,6 +55,11 @@ jobs:
       - name: Install azd
         uses: Azure/setup-azd@v2
 
+      - name: Install Azure CLI
+        run: |
+          curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash
+        shell: bash
+
       - name: Log in with Azure (Federated Credentials)
         run: |
           azd auth login `
@@ -74,6 +79,8 @@ jobs:
         run: |
           az provider register --namespace Microsoft.ContainerInstance --wait
           az provider register --namespace Microsoft.Storage --wait
+          az provider register --namespace Microsoft.App --wait
+          az provider register --namespace Microsoft.OperationalInsights --wait
         shell: bash
 
       - name: Provision Infrastructure
