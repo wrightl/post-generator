@@ -1,25 +1,17 @@
 using System.Text.Json;
-using Azure;
-using Microsoft.Extensions.Options;
-using OpenAI;
-using OpenAI.Chat;
-using PostGenerator.Api.Options;
 
 namespace PostGenerator.Api.Services;
 
 public class PostGenerationService : IPostGenerationService
 {
-    private readonly OpenAIClient _openAIClient;
-    private readonly AzureOpenAIOptions _options;
+    private readonly IChatCompletionService _chatCompletion;
     private readonly ILogger<PostGenerationService> _logger;
 
     public PostGenerationService(
-        OpenAIClient openAIClient,
-        IOptions<AzureOpenAIOptions> options,
+        IChatCompletionService chatCompletion,
         ILogger<PostGenerationService> logger)
     {
-        _openAIClient = openAIClient;
-        _options = options.Value;
+        _chatCompletion = chatCompletion;
         _logger = logger;
     }
 
@@ -32,7 +24,7 @@ public class PostGenerationService : IPostGenerationService
         var systemPrompt = "You are a social media content writer. Generate posts as JSON. For each post return exactly: \"content\" (the post text), \"script\" (only for TikTok, the video script), \"hashtags\" (JSON array of hashtag strings). Be concise and match the requested tone and length.";
         var userPrompt = $"Generate {options.NumPosts} {(options.Linked ? "linked" : "standalone")} posts for platform: {options.Platform}. Topic: {options.TopicDetail}. Tone: {options.Tone ?? "professional"}. Length: {options.Length ?? "medium"}.{platformNote} Return a JSON array of objects, each with \"content\", \"script\" (optional), \"hashtags\" (array of strings). No markdown, only the raw JSON array.";
 
-        var content = await CallChatCompletionAsync(systemPrompt, userPrompt, 4000, cancellationToken);
+        var content = await _chatCompletion.CompleteAsync(systemPrompt, userPrompt, 4000, cancellationToken);
         if (content == null) return Array.Empty<GeneratedPostItem>();
 
         return ParseContentAsPostItems(content);
@@ -51,49 +43,10 @@ public class PostGenerationService : IPostGenerationService
         var systemPrompt = "You are a social media content writer. Generate a single post as JSON. Return exactly one object with: \"content\" (the post text), \"script\" (only for TikTok, the video script), \"hashtags\" (JSON array of hashtag strings). Be concise and match the requested tone and length. No markdown, only the raw JSON object.";
         var userPrompt = $"Generate post {index} of {options.NumPosts} for platform: {options.Platform}. Topic: {options.TopicDetail}. Tone: {options.Tone ?? "professional"}. Length: {options.Length ?? "medium"}.{platformNote}{linkedContext} Return a single JSON object with \"content\", \"script\" (optional), \"hashtags\" (array of strings).";
 
-        var content = await CallChatCompletionAsync(systemPrompt, userPrompt, 2000, cancellationToken);
+        var content = await _chatCompletion.CompleteAsync(systemPrompt, userPrompt, 2000, cancellationToken);
         if (content == null) return null;
 
         return ParseContentAsSinglePostItem(content);
-    }
-
-    private async Task<string?> CallChatCompletionAsync(string systemPrompt, string userPrompt, int maxTokens, CancellationToken cancellationToken)
-    {
-        ChatClient chatClient = _openAIClient.GetChatClient("openai-chat-deployment");
-
-        var messages = new ChatMessage[]
-        {
-            new SystemChatMessage(systemPrompt),
-            new UserChatMessage(userPrompt),
-        };
-        // var completionOptions = new ChatCompletionOptions
-        // {
-        //     // MaxOutputTokenCount = maxTokens,
-        //     Temperature = 0.7f,
-        // };
-
-        try
-        {
-            var completion = await chatClient.CompleteChatAsync(messages, cancellationToken: cancellationToken);
-            var content = completion.Value.Content;
-            if (content == null || content.Count == 0)
-                return null;
-            var result = string.Concat(content
-                .Where(p => p.Kind == ChatMessageContentPartKind.Text && p.Text != null)
-                .Select(p => p.Text));
-            return StripMarkdown(result.Trim());
-        }
-        catch (RequestFailedException ex)
-        {
-            throw new HttpRequestException($"Azure OpenAI returned {ex.Status} {ex.Message}. {ex.ErrorCode}", ex);
-        }
-    }
-
-    private static string StripMarkdown(string content)
-    {
-        if (content.StartsWith("```"))
-            content = content.Replace("```json", "").Replace("```", "").Trim();
-        return content;
     }
 
     private List<GeneratedPostItem> ParseContentAsPostItems(string content)
@@ -109,7 +62,7 @@ public class PostGenerationService : IPostGenerationService
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Failed to parse Azure OpenAI response as JSON array, using raw content as single post");
+            _logger.LogWarning(ex, "Failed to parse AI response as JSON array, using raw content as single post");
             return new List<GeneratedPostItem> { new GeneratedPostItem(content, null, null) };
         }
     }
@@ -123,7 +76,7 @@ public class PostGenerationService : IPostGenerationService
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Failed to parse Azure OpenAI response as JSON object, using raw content");
+            _logger.LogWarning(ex, "Failed to parse AI response as JSON object, using raw content");
             return new GeneratedPostItem(content, null, null);
         }
     }

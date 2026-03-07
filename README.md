@@ -85,6 +85,9 @@ The Function runs on a **timer** (every 5 minutes) to publish due posts. For loc
 | `Firebase__ProjectId`                                          | Firebase project ID                                                                                                                 |
 | `Firebase__CredentialPath` or `Firebase__CredentialJsonBase64` | Service account for token verification                                                                                              |
 | `Cors__Origins`                                                | Allowed origins (e.g. `["https://yourapp.azurestaticapps.net"]`)                                                                    |
+| `Ai__Provider`                                                 | AI provider for post generation: `AzureOpenAI` or `Claude`. Default `AzureOpenAI`. When `Claude`, image generation is disabled.   |
+| `Anthropic__ApiKey`                                            | Anthropic API key (required when `Ai__Provider` is `Claude`).                                                                       |
+| `Anthropic__Model`                                             | Optional. Claude model (e.g. `claude-sonnet-4-20250514`). Default set in code.                                                      |
 | `AzureOpenAI__Endpoint`                                        | Azure OpenAI endpoint URL                                                                                                           |
 | `AzureOpenAI__ApiKey`                                          | Azure OpenAI API key                                                                                                                |
 | `AzureOpenAI__ChatDeploymentName`                              | Chat model deployment (e.g. gpt-4o)                                                                                                 |
@@ -95,7 +98,7 @@ The Function runs on a **timer** (every 5 minutes) to publish due posts. For loc
 | `Mailgun__Domain`                                              | Mailgun sending domain                                                                                                              |
 | `Mailgun__FromAddress`                                         | From email address                                                                                                                  |
 
-**Local development (API):** Do not commit `appsettings.Development.json`. Use **dotnet user-secrets** for sensitive values: from `src/Api` run e.g. `dotnet user-secrets set "AzureOpenAI:ApiKey" "your-key"`. See [Safe storage of app secrets in development](https://learn.microsoft.com/en-us/aspnet/core/security/app-secrets).
+**Local development (API):** Do not commit `appsettings.Development.json`. Use **dotnet user-secrets** for sensitive values: from `src/Api` run e.g. `dotnet user-secrets set "AzureOpenAI:ApiKey" "your-key"` or `dotnet user-secrets set "Anthropic:ApiKey" "sk-ant-..."` when using Claude. See [Safe storage of app secrets in development](https://learn.microsoft.com/en-us/aspnet/core/security/app-secrets). When using Claude, the "Generate images" option is hidden in the UI and the API rejects image generation requests.
 
 ### Web (`.env.local` or build env)
 
@@ -131,6 +134,7 @@ Deployment uses GitHub **secrets** and **variables** for API and frontend config
 - `SQL_ADMIN_PASSWORD` – Password for the Azure SQL Server administrator (used by provision; required for full deploy).
 - `FIREBASE_CREDENTIAL_JSON_BASE64` – Base64-encoded Firebase service account JSON (API auth).
 - `MAILGUN_API_KEY` – Mailgun API key (API and Function).
+- `ANTHROPIC_API_KEY` – Anthropic API key (required when using Claude as AI provider; set in GitHub and mapped to API container via workflow/AppHost).
 
 **Variables** (optional)
 
@@ -139,7 +143,7 @@ Deployment uses GitHub **secrets** and **variables** for API and frontend config
 - `AZURE_AI_LOCATION` – Region for the GPT-4o (chat) Azure OpenAI account (default: `westeurope`).
 - `AZURE_IMAGE_LOCATION` – Region for the DALL-E-3 (image) Azure OpenAI account (default: `swedencentral`).
 - `AZURE_SQL_ADMIN_LOGIN` – SQL Server admin login (default: `sqladmin`).
-- **API (Bicep → Container App / Function):** `FIREBASE_PROJECT_ID`, `CORS_ORIGINS` (comma-separated), `MAILGUN_DOMAIN`, `MAILGUN_FROM_ADDRESS`, `MAILGUN_FROM_NAME`.
+- **API (Bicep → Container App / Function):** `FIREBASE_PROJECT_ID`, `CORS_ORIGINS` (comma-separated), `MAILGUN_DOMAIN`, `MAILGUN_FROM_ADDRESS`, `MAILGUN_FROM_NAME`. For AI provider: `AI_PROVIDER` (variable, `AzureOpenAI` or `Claude`); when `Claude`, set secret `ANTHROPIC_API_KEY`. These are passed to the API as `Ai__Provider` and `Anthropic__ApiKey`.
 - **Frontend (build):** `NEXT_PUBLIC_FIREBASE_API_KEY`, `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN`, `NEXT_PUBLIC_FIREBASE_PROJECT_ID`, `NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET`, `NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID`, `NEXT_PUBLIC_FIREBASE_APP_ID`. `NEXT_PUBLIC_API_URL` is set from deploy output.
 
 After provision and API/Function deploy, a **deploy_web** job builds the Next.js frontend (static export) with `NEXT_PUBLIC_API_URL` set to the API URL and deploys it to the provisioned **Azure Static Web App** (Free tier). No manual steps are needed; the frontend URL is available from the Static Web App in the Azure portal (or from the workflow’s **Deploy frontend to Static Web Apps** step output `static_web_app_url`).

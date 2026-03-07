@@ -1,7 +1,9 @@
 using System.IO.Pipelines;
 using System.Text.Json;
+using Microsoft.Extensions.Options;
 using PostGenerator.Api.EndpointFilters;
 using PostGenerator.Api.Models;
+using PostGenerator.Api.Options;
 using PostGenerator.Api.Services;
 using PostGenerator.Api.Validators;
 
@@ -18,12 +20,23 @@ public static class SeriesEndpoints
         app.MapPost("/api/series/publish-generated", PublishGenerated).RequireAuthorization().AddEndpointFilter<RequireCurrentUserFilter>().AddEndpointFilter<ValidationFilter<PublishGeneratedSeriesRequest>>();
     }
 
+    private static IResult? RejectImageGenerationWhenClaude(GenerateSeriesRequest req, AiOptions aiOptions)
+    {
+        if (aiOptions.Provider?.Equals("Claude", StringComparison.OrdinalIgnoreCase) == true && req.GenerateImages)
+            return Results.BadRequest("Image generation is not available when using Claude. Switch to Azure OpenAI or disable image generation.");
+        return null;
+    }
+
     private static async Task<IResult> Generate(
         GenerateSeriesRequest req,
         ICurrentUserService currentUser,
         ISeriesService seriesService,
+        IOptions<AiOptions> aiOptions,
         CancellationToken ct)
     {
+        var reject = RejectImageGenerationWhenClaude(req, aiOptions.Value);
+        if (reject is { } r) return r;
+
         var result = await seriesService.GenerateAsync(currentUser.UserId!.Value, req, ct);
         if (result == null) return Results.BadRequest("No posts generated.");
         return Results.Ok(new { seriesId = result.Value.SeriesId, postIds = result.Value.PostIds });
@@ -43,9 +56,13 @@ public static class SeriesEndpoints
         GenerateSeriesRequest req,
         ICurrentUserService currentUser,
         ISeriesService seriesService,
+        IOptions<AiOptions> aiOptions,
         ILoggerFactory loggerFactory,
         CancellationToken ct)
     {
+        var reject = RejectImageGenerationWhenClaude(req, aiOptions.Value);
+        if (reject is { } r) return r;
+
         var pipe = new Pipe();
         var userId = currentUser.UserId!.Value;
         var logger = loggerFactory.CreateLogger("PostGenerator.Api.Endpoints.SeriesEndpoints");

@@ -43,7 +43,8 @@ var mailgunDomain = builder.AddParameter("mailgun-domain");
 var mailgunFromAddress = builder.AddParameter("mailgun-from-address", defaultMailgunFromAddress);
 var mailgunFromName = builder.AddParameter("mailgun-from-name", defaultMailgunFromName);
 var mailgunApiKey = builder.AddParameter("mailgun-api-key", secret: true);
-
+var aiProvider = builder.AddParameter("ai-provider");
+var anthropicApiKey = builder.AddParameter("anthropic-api-key", secret: true);
 
 // App Container Environment
 builder.AddAzureContainerAppEnvironment($"{appName}-environment");
@@ -65,6 +66,8 @@ var apiService = builder.AddProject<Projects.Api>(apiName)
                         .WithEnvironment("Mailgun__FromAddress", mailgunFromAddress)
                         .WithEnvironment("Mailgun__FromName", mailgunFromName)
                         .WithEnvironment("Mailgun__ApiKey", mailgunApiKey)
+                        .WithEnvironment("Ai__Provider", aiProvider)
+                        .WithEnvironment("Anthropic__ApiKey", anthropicApiKey)
                         .WithHttpHealthCheck("/alive")
                         .PublishAsAzureContainerApp((module, app) =>
                         {
@@ -124,26 +127,26 @@ if (builder.ExecutionContext.IsPublishMode)
 }
 else
 {
-    // Azure OpenAI
-    var openai = builder.AddAzureOpenAI(openaiName).ConfigureInfrastructure(infra =>
-    {
-        var openaiService = infra.GetProvisionableResources()
-                                 .OfType<CognitiveServicesAccount>()
-                                 .Single();
-        openaiService.Location = new AzureLocation(speechRegion);
-    });
+    // // Azure OpenAI
+    // var openai = builder.AddAzureOpenAI(openaiName).ConfigureInfrastructure(infra =>
+    // {
+    //     var openaiService = infra.GetProvisionableResources()
+    //                              .OfType<CognitiveServicesAccount>()
+    //                              .Single();
+    //     openaiService.Location = new AzureLocation(speechRegion);
+    // });
 
-    // Chat deployment
-    openai.AddDeployment(
-        name: $"{openaiName}-chat-deployment",
-        modelVersion: chatModelVersion,
-        modelName: chatModelName)
-        .WithProperties(deployment =>
-        {
-            deployment.SkuName = modelSkuName;
-        });
+    // // Chat deployment
+    // openai.AddDeployment(
+    //     name: $"{openaiName}-chat-deployment",
+    //     modelVersion: chatModelVersion,
+    //     modelName: chatModelName)
+    //     .WithProperties(deployment =>
+    //     {
+    //         deployment.SkuName = modelSkuName;
+    //     });
 
-    apiService.WithReference(openai);
+    // apiService.WithReference(openai);
 
     // sql server
     var sql = builder.AddSqlServer(sqlServerName, password: sqlPassword, port: 49977)

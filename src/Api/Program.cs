@@ -18,6 +18,8 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.Configure<FirebaseOptions>(builder.Configuration.GetSection(FirebaseOptions.SectionName));
 builder.Services.Configure<AzureOpenAIOptions>(builder.Configuration.GetSection(AzureOpenAIOptions.SectionName));
+builder.Services.Configure<AiOptions>(builder.Configuration.GetSection(AiOptions.SectionName));
+builder.Services.Configure<AnthropicOptions>(builder.Configuration.GetSection(AnthropicOptions.SectionName));
 builder.Services.AddOptions<BlobStorageOptions>()
     .Bind(builder.Configuration.GetSection(BlobStorageOptions.SectionName))
     .ValidateOnStart();
@@ -108,6 +110,13 @@ builder.AddAzureOpenAIClient(connectionName: "openai")
 
 builder.AddAzureBlobServiceClient(connectionName: "blobs");
 
+// Register IChatCompletionService based on Ai:Provider
+var aiProvider = builder.Configuration.GetSection(AiOptions.SectionName)["Provider"] ?? "AzureOpenAI";
+if (aiProvider.Equals("Claude", StringComparison.OrdinalIgnoreCase))
+    builder.Services.AddScoped<IChatCompletionService, ClaudeChatCompletionService>();
+else
+    builder.Services.AddScoped<IChatCompletionService, AzureOpenAIChatCompletionService>();
+
 
 builder.Services.AddAuthentication(FirebaseAuthOptions.DefaultScheme)
     .AddScheme<FirebaseAuthOptions, FirebaseAuthHandler>(FirebaseAuthOptions.DefaultScheme, _ => { });
@@ -162,6 +171,7 @@ else
     app.MapHealthChecks("/health");
 app.MapGet("/ready", () => Results.Ok(new { status = "ready: " + (app.Configuration["Cors:Origins"] ?? app.Configuration["Cors__Origins"] ?? "") }));
 
+app.MapConfigEndpoints();
 app.MapAuthEndpoints();
 app.MapUserEndpoints();
 app.MapDashboardEndpoints();

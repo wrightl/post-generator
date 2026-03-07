@@ -44,6 +44,7 @@ Thumbs.db
 # Azure
 .azure/
 *.pubxml
+infra/main.parameters.generated.json
 
 # Test
 coverage/

@@ -1,6 +1,23 @@
 export const API_URL =
     process.env.NEXT_PUBLIC_API_URL ?? 'https://localhost:7049';
 
+// --- Config (no auth) ---
+export type AppConfig = {
+    aiProvider: string;
+    imageGenerationAvailable: boolean;
+};
+
+let configCache: AppConfig | null = null;
+
+export async function getConfig(): Promise<AppConfig> {
+    if (configCache) return configCache;
+    const res = await fetch(`${API_URL}/api/config`);
+    if (!res.ok) throw new Error('Failed to fetch config');
+    const data = (await res.json()) as AppConfig;
+    configCache = data;
+    return data;
+}
+
 // --- User profile & credentials ---
 export type UserProfile = {
     id: number;

@@ -1,11 +1,11 @@
 'use client';
 
 import { useAuth } from '@/contexts/AuthContext';
-import type { GenerateSeriesPayload } from '@/lib/api';
+import { getConfig, type GenerateSeriesPayload } from '@/lib/api';
 import { VoiceInput } from '@/components/VoiceInput';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 const PLATFORMS = [
     'LinkedIn',
@@ -50,6 +50,14 @@ export default function GeneratePage() {
     const [submitting, setSubmitting] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [liveTranscript, setLiveTranscript] = useState('');
+    const [imageGenerationAvailable, setImageGenerationAvailable] = useState(true);
+    const [scheduleForPosting, setScheduleForPosting] = useState(true);
+
+    useEffect(() => {
+        getConfig()
+            .then((c) => setImageGenerationAvailable(c.imageGenerationAvailable))
+            .catch(() => setImageGenerationAvailable(false));
+    }, []);
 
     const appendTopicWithVoice = useCallback((text: string) => {
         setTopicDetail((prev) => (prev ? `${prev} ${text}` : text));
@@ -77,18 +85,20 @@ export default function GeneratePage() {
 
         if (!platform) return 'Please select a platform.';
 
-        if (!startDate.trim()) return 'Please enter a schedule start date.';
-        if (!scheduledTimeOfDay.trim())
-            return 'Please enter a schedule time of day.';
+        if (scheduleForPosting) {
+            if (!startDate.trim()) return 'Please enter a schedule start date.';
+            if (!scheduledTimeOfDay.trim())
+                return 'Please enter a schedule time of day.';
 
-        const scheduleDate = new Date(`${startDate}T${scheduledTimeOfDay}`);
-        if (Number.isNaN(scheduleDate.getTime()))
-            return 'Please enter a valid date and time.';
-        const minTime = new Date(
-            Date.now() + MIN_SCHEDULE_MINUTES_FROM_NOW * 60 * 1000,
-        );
-        if (scheduleDate.getTime() < minTime.getTime()) {
-            return `Start date & time must be at least ${MIN_SCHEDULE_MINUTES_FROM_NOW} minutes in the future.`;
+            const scheduleDate = new Date(`${startDate}T${scheduledTimeOfDay}`);
+            if (Number.isNaN(scheduleDate.getTime()))
+                return 'Please enter a valid date and time.';
+            const minTime = new Date(
+                Date.now() + MIN_SCHEDULE_MINUTES_FROM_NOW * 60 * 1000,
+            );
+            if (scheduleDate.getTime() < minTime.getTime()) {
+                return `Start date & time must be at least ${MIN_SCHEDULE_MINUTES_FROM_NOW} minutes in the future.`;
+            }
         }
 
         return null;
@@ -114,10 +124,14 @@ export default function GeneratePage() {
                 linked,
                 tone,
                 length,
-                generateImages,
-                startDate: startDate.trim(),
-                recurrence,
-                scheduledTimeOfDay: scheduledTimeOfDay.trim(),
+                generateImages: imageGenerationAvailable ? generateImages : false,
+                ...(scheduleForPosting
+                    ? {
+                          startDate: startDate.trim(),
+                          recurrence,
+                          scheduledTimeOfDay: scheduledTimeOfDay.trim(),
+                      }
+                    : {}),
             };
             if (
                 platform === 'TikTok' &&
@@ -315,27 +329,59 @@ export default function GeneratePage() {
                         </div>
                     )}
 
+                    {imageGenerationAvailable && (
+                        <div
+                            className="flex items-center gap-3"
+                            role="group"
+                            aria-label="Generate images"
+                        >
+                            <button
+                                type="button"
+                                role="switch"
+                                aria-checked={generateImages}
+                                onClick={() => setGenerateImages((v) => !v)}
+                                className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none focus:ring-2 focus:ring-[var(--focus-ring)] focus:ring-offset-2 focus:ring-offset-[var(--surface)] ${generateImages ? 'bg-[var(--primary)]' : 'bg-[var(--border)]'}`}
+                            >
+                                <span
+                                    className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition-transform ${generateImages ? 'translate-x-5' : 'translate-x-0.5'}`}
+                                />
+                            </button>
+                            <span className="text-sm text-[var(--text)]">
+                                Generate images (when supported)
+                            </span>
+                        </div>
+                    )}
+
                     <div
                         className="flex items-center gap-3"
                         role="group"
-                        aria-label="Generate images"
+                        aria-label="Schedule for posting"
                     >
                         <button
                             type="button"
                             role="switch"
-                            aria-checked={generateImages}
-                            onClick={() => setGenerateImages((v) => !v)}
-                            className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none focus:ring-2 focus:ring-[var(--focus-ring)] focus:ring-offset-2 focus:ring-offset-[var(--surface)] ${generateImages ? 'bg-[var(--primary)]' : 'bg-[var(--border)]'}`}
+                            aria-checked={scheduleForPosting}
+                            onClick={() =>
+                                setScheduleForPosting((v) => !v)
+                            }
+                            className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none focus:ring-2 focus:ring-[var(--focus-ring)] focus:ring-offset-2 focus:ring-offset-[var(--surface)] ${scheduleForPosting ? 'bg-[var(--primary)]' : 'bg-[var(--border)]'}`}
                         >
                             <span
-                                className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition-transform ${generateImages ? 'translate-x-5' : 'translate-x-0.5'}`}
+                                className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition-transform ${scheduleForPosting ? 'translate-x-5' : 'translate-x-0.5'}`}
                             />
                         </button>
-                        <span className="text-sm text-[var(--text)]">
-                            Generate images (when supported)
-                        </span>
+                        <div className="flex flex-col gap-0.5">
+                            <span className="text-sm text-[var(--text)]">
+                                Schedule for posting
+                            </span>
+                            <span className="text-xs text-[var(--text-muted)]">
+                                If unchecked, posts will be saved as drafts and
+                                not auto-posted.
+                            </span>
+                        </div>
                     </div>
 
+                    {scheduleForPosting && (
                     <fieldset className="rounded-lg border border-[var(--border)] p-3 space-y-3">
                         <legend className="text-sm font-medium text-[var(--text)] px-1">
                             Schedule
@@ -430,6 +476,7 @@ export default function GeneratePage() {
                             </select>
                         </div>
                     </fieldset>
+                    )}
                 </div>
             </aside>
 

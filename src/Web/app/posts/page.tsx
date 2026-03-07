@@ -6,6 +6,7 @@ import {
     deletePost,
     fetchPosts,
     generatePostImage,
+    getConfig,
     publishPostNow,
     uploadPostImage,
     type Post,
@@ -155,8 +156,16 @@ export default function PostsPage() {
         null,
     );
     const [publishingId, setPublishingId] = useState<number | null>(null);
+    const [imageGenerationAvailable, setImageGenerationAvailable] =
+        useState(true);
     const uploadInputRef = useRef<HTMLInputElement>(null);
     const uploadTargetPostIdRef = useRef<number | null>(null);
+
+    useEffect(() => {
+        getConfig()
+            .then((c) => setImageGenerationAvailable(c.imageGenerationAvailable))
+            .catch(() => setImageGenerationAvailable(false));
+    }, []);
 
     const load = useCallback(async () => {
         if (!idToken) return;
@@ -482,24 +491,30 @@ export default function PostsPage() {
                                 >
                                     <IconUpload />
                                 </button>
-                                <button
-                                    type="button"
-                                    onClick={() => handleGenerateImage(p.id)}
-                                    disabled={generatingImageId === p.id}
-                                    className={iconBtnClass}
-                                    title={
-                                        generatingImageId === p.id
-                                            ? 'Generating image…'
-                                            : 'Generate image'
-                                    }
-                                    aria-label={
-                                        generatingImageId === p.id
-                                            ? 'Generating image…'
-                                            : 'Generate image'
-                                    }
-                                >
-                                    <IconSparkles />
-                                </button>
+                                {imageGenerationAvailable && (
+                                    <button
+                                        type="button"
+                                        onClick={() =>
+                                            handleGenerateImage(p.id)
+                                        }
+                                        disabled={
+                                            generatingImageId === p.id
+                                        }
+                                        className={iconBtnClass}
+                                        title={
+                                            generatingImageId === p.id
+                                                ? 'Generating image…'
+                                                : 'Generate image'
+                                        }
+                                        aria-label={
+                                            generatingImageId === p.id
+                                                ? 'Generating image…'
+                                                : 'Generate image'
+                                        }
+                                    >
+                                        <IconSparkles />
+                                    </button>
+                                )}
                                 <button
                                     type="button"
                                     onClick={() => handleDelete(p.id)}

@@ -15,6 +15,7 @@
     <ProjectReference Include="..\PostGenerator.ServiceDefaults\PostGenerator.ServiceDefaults.csproj" />
   </ItemGroup>
   <ItemGroup>
+    <PackageReference Include="Anthropic" Version="12.8.0" />
     <PackageReference Include="Aspire.Azure.AI.OpenAI" Version="9.5.2-preview.1.25522.3" />
     <PackageReference Include="Aspire.Azure.Storage.Blobs" Version="13.1.1" />
     <PackageReference Include="Aspire.Microsoft.EntityFrameworkCore.SqlServer" Version="13.1.1" />

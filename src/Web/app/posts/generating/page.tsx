@@ -4,6 +4,7 @@ import { PostImage } from '@/components/PostImage';
 import { useAuth } from '@/contexts/AuthContext';
 import {
     generateSeriesStream,
+    getConfig,
     publishGeneratedSeries,
     type GenerateSeriesPayload,
     type Post,
@@ -56,6 +57,8 @@ export default function PostsGeneratingPage() {
     const [error, setError] = useState<string | null>(null);
     const [done, setDone] = useState(false);
     const [publishing, setPublishing] = useState(false);
+    const [imageGenerationAvailable, setImageGenerationAvailable] =
+        useState(true);
     const startedRef = useRef(false);
     const mountedRef = useRef(true);
     const hasUnsavedPostsRef = useRef(false);
@@ -68,6 +71,12 @@ export default function PostsGeneratingPage() {
             mountedRef.current = false;
         };
     }, [router]);
+
+    useEffect(() => {
+        getConfig()
+            .then((c) => setImageGenerationAvailable(c.imageGenerationAvailable))
+            .catch(() => setImageGenerationAvailable(false));
+    }, []);
 
     const hasUnsavedPosts = Boolean(done && posts.length > 0 && !publishing);
     useEffect(() => {
@@ -180,7 +189,9 @@ export default function PostsGeneratingPage() {
                 linked: seriesPayload.linked,
                 tone: seriesPayload.tone,
                 length: seriesPayload.length,
-                generateImages: seriesPayload.generateImages,
+                generateImages: imageGenerationAvailable
+                    ? seriesPayload.generateImages
+                    : false,
                 tiktokScriptDurationSeconds:
                     seriesPayload.tiktokScriptDurationSeconds,
                 startDate: seriesPayload.startDate ?? null,
