@@ -75,14 +75,6 @@ jobs:
           tenant-id: ${{ vars.AZURE_TENANT_ID }}
           subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
 
-      - name: Register Azure Resource Providers
-        run: |
-          az provider register --namespace Microsoft.ContainerInstance --wait
-          az provider register --namespace Microsoft.Storage --wait
-          az provider register --namespace Microsoft.App --wait
-          az provider register --namespace Microsoft.OperationalInsights --wait
-        shell: bash
-
       - name: Provision Infrastructure
         run: azd provision --no-prompt
 
