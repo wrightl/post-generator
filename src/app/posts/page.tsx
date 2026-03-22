@@ -6,6 +6,7 @@ import {
     deletePost,
     fetchPosts,
     publishPostNow,
+    updatePost,
     uploadPostImage,
     type Post,
 } from "@/lib/api";
@@ -29,6 +30,14 @@ function formatScheduledAt(post: Post): string {
         });
     if (post.status === 'Draft') return 'Draft — not scheduled';
     return 'No schedule';
+}
+
+function formatDateTimeLocal(iso: string | null): string {
+    if (!iso) return '';
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return '';
+    const pad = (n: number) => n.toString().padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
 function IconEdit({ className }: { className?: string }) {
@@ -151,11 +160,17 @@ export default function PostsPage() {
         null,
     );
     const [publishingId, setPublishingId] = useState<number | null>(null);
+    const [editingSchedulePostId, setEditingSchedulePostId] = useState<
+        number | null
+    >(null);
+    const [editingScheduleValue, setEditingScheduleValue] = useState('');
+    const [savingSchedule, setSavingSchedule] = useState(false);
     const uploadInputRef = useRef<HTMLInputElement>(null);
     const uploadTargetPostIdRef = useRef<number | null>(null);
 
     const load = useCallback(async () => {
         if (!appUser) return;
+        setPosts([]);
         setLoading(true);
         setError(null);
         try {
@@ -183,6 +198,7 @@ export default function PostsPage() {
 
     useEffect(() => {
         setPage(1);
+        setPosts([]);
     }, [filter.platforms, filter.statuses]);
 
     useEffect(() => {
@@ -235,6 +251,32 @@ export default function PostsPage() {
             setUploadingImageId(null);
             uploadTargetPostIdRef.current = null;
             e.target.value = '';
+        }
+    };
+
+    const handleScheduleChange = async (
+        postId: number,
+        newScheduledAt: string | null,
+    ) => {
+        setSavingSchedule(true);
+        setError(null);
+        try {
+            const updated = await updatePost(postId, {
+                scheduledAt: newScheduledAt
+                    ? new Date(newScheduledAt).toISOString()
+                    : null,
+                status: newScheduledAt ? 'Scheduled' : 'Draft',
+            });
+            setPosts((prev) =>
+                prev.map((p) => (p.id === postId ? updated : p)),
+            );
+            setEditingSchedulePostId(null);
+        } catch (e) {
+            setError(
+                e instanceof Error ? e.message : 'Failed to update schedule',
+            );
+        } finally {
+            setSavingSchedule(false);
         }
     };
 
@@ -407,20 +449,105 @@ export default function PostsPage() {
                         className="flex flex-col gap-2 rounded border border-[var(--border)] bg-[var(--surface)] p-4"
                     >
                         <div className="flex items-center justify-between gap-2">
-                            <span className="text-sm font-medium text-[var(--text)]">
-                                {formatScheduledAt(p)}
-                            </span>
-                            {p.status === 'Draft' && (
-                                <button
-                                    type="button"
-                                    onClick={() => setPublishNowPostId(p.id)}
-                                    className={iconBtnClass}
-                                    aria-label="Post now"
-                                    title="Post now"
-                                >
-                                    <IconSend />
-                                </button>
-                            )}
+                            <div className="min-w-0 flex-1">
+                                {editingSchedulePostId === p.id &&
+                                (p.status === 'Draft' ||
+                                    p.status === 'Scheduled') ? (
+                                    <div className="flex flex-wrap items-center gap-2">
+                                        <input
+                                            type="datetime-local"
+                                            value={editingScheduleValue}
+                                            onChange={(e) =>
+                                                setEditingScheduleValue(
+                                                    e.target.value,
+                                                )
+                                            }
+                                            onKeyDown={(e) => {
+                                                if (e.key === 'Enter') {
+                                                    e.preventDefault();
+                                                    handleScheduleChange(
+                                                        p.id,
+                                                        editingScheduleValue.trim() ||
+                                                            null,
+                                                    );
+                                                }
+                                                if (e.key === 'Escape') {
+                                                    setEditingSchedulePostId(
+                                                        null,
+                                                    );
+                                                }
+                                            }}
+                                            autoFocus
+                                            disabled={savingSchedule}
+                                            className="rounded border border-[var(--border)] bg-[var(--bg)] px-2 py-1 text-sm text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-[var(--focus-ring)] disabled:opacity-50"
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={() =>
+                                                handleScheduleChange(
+                                                    p.id,
+                                                    editingScheduleValue.trim() ||
+                                                        null,
+                                                )
+                                            }
+                                            disabled={savingSchedule}
+                                            className="text-xs text-[var(--primary)] hover:text-[var(--primary-hover)] disabled:opacity-50"
+                                        >
+                                            Save
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setEditingSchedulePostId(null);
+                                            }}
+                                            className="text-xs text-[var(--text-muted)] hover:text-[var(--text)]"
+                                        >
+                                            Cancel
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            if (
+                                                p.status === 'Draft' ||
+                                                p.status === 'Scheduled'
+                                            ) {
+                                                setEditingSchedulePostId(p.id);
+                                                setEditingScheduleValue(
+                                                    formatDateTimeLocal(
+                                                        p.scheduledAt,
+                                                    ),
+                                                );
+                                            }
+                                        }}
+                                        className="text-left text-sm font-medium text-[var(--text)] hover:underline focus:outline-none focus:ring-2 focus:ring-[var(--focus-ring)] rounded"
+                                        title={
+                                            p.status === 'Draft' ||
+                                            p.status === 'Scheduled'
+                                                ? 'Click to edit date and time'
+                                                : undefined
+                                        }
+                                    >
+                                        {formatScheduledAt(p)}
+                                    </button>
+                                )}
+                            </div>
+                            {(p.status === 'Draft' ||
+                                p.status === 'Scheduled') &&
+                                p.scheduledAt && (
+                                    <button
+                                        type="button"
+                                        onClick={() =>
+                                            setPublishNowPostId(p.id)
+                                        }
+                                        className={iconBtnClass}
+                                        aria-label="Post now"
+                                        title="Post now"
+                                    >
+                                        <IconSend />
+                                    </button>
+                                )}
                         </div>
                         <p className="line-clamp-2 text-sm text-[var(--text-muted)]">
                             {p.content}

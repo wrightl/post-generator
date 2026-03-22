@@ -103,7 +103,8 @@ export default function PostsGeneratingPage() {
             if (dest.pathname === current.pathname && dest.search === current.search) return;
             e.preventDefault();
             if (window.confirm('You have unpublished posts. Leave without saving?')) {
-                routerRef.current.push(dest.pathname + dest.search);
+                const path = dest.pathname + dest.search;
+                setTimeout(() => routerRef.current.push(path), 0);
             }
         };
         nav?.addEventListener('navigate', handleNavigate);
@@ -237,7 +238,7 @@ export default function PostsGeneratingPage() {
             {done && (
                 <p className="mt-2 text-[var(--text-muted)]">
                     Done. {posts.length} post{posts.length === 1 ? '' : 's'}{' '}
-                    created. Publish to save them to your account.
+                    created. Save to add them to your account.
                 </p>
             )}
             {done && posts.length > 0 && (
@@ -248,7 +249,7 @@ export default function PostsGeneratingPage() {
                         disabled={publishing}
                         className="rounded-lg px-5 py-2.5 text-white bg-[var(--primary)] hover:bg-[var(--primary-hover)] disabled:opacity-50 font-medium transition-colors"
                     >
-                        {publishing ? 'Publishing…' : 'Publish'}
+                        {publishing ? 'Saving…' : 'Save'}
                     </button>
                 </div>
             )}
