@@ -19,15 +19,11 @@ export async function POST(request: Request) {
       scheduledTimeOfDay?: string | null;
     };
 
-    const provider = process.env.AI_PROVIDER ?? "";
-    if (
-      provider.toLowerCase() === "anthropic" &&
-      body.generateImages === true
-    ) {
+    if (body.generateImages === true) {
       return NextResponse.json(
         {
           message:
-            "Image generation is not available when using Claude. Switch to Azure OpenAI or disable image generation.",
+            "Image generation is not supported. Disable image generation.",
         },
         { status: 400 }
       );

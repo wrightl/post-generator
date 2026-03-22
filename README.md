@@ -36,7 +36,7 @@ Copy `.env.example` to `.env.local` and fill in:
 - `CRON_SECRET` – random string for cron auth (Vercel sends as Bearer token)
 - `BLOB_READ_WRITE_TOKEN` – from Vercel Blob
 - `MAILGUN_*` – Mailgun for post-publish notifications
-- `AI_PROVIDER`, Azure OpenAI or Anthropic vars – for post generation
+- `ANTHROPIC_API_KEY`, `ANTHROPIC_MODEL` (optional) – for post generation
 
 ### 3. Run locally
 

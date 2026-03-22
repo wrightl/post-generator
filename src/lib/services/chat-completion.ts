@@ -1,4 +1,3 @@
-import OpenAI from "openai";
 import Anthropic from "@anthropic-ai/sdk";
 
 function stripMarkdown(content: string): string {
@@ -8,39 +7,7 @@ function stripMarkdown(content: string): string {
   return content;
 }
 
-export async function completeWithAzure(
-  systemPrompt: string,
-  userPrompt: string,
-  maxTokens: number
-): Promise<string | null> {
-  const endpoint = process.env.AZURE_OPENAI_ENDPOINT;
-  const apiKey = process.env.AZURE_OPENAI_API_KEY;
-  const deployment = process.env.AZURE_OPENAI_DEPLOYMENT ?? "gpt-4o";
-
-  if (!endpoint || !apiKey) {
-    throw new Error("Azure OpenAI not configured");
-  }
-
-  const client = new OpenAI({
-    apiKey,
-    baseURL: `${endpoint.replace(/\/$/, "")}/openai/deployments/${deployment}`,
-    defaultQuery: { "api-version": "2024-08-01-preview" },
-  });
-
-  const completion = await client.chat.completions.create({
-    model: deployment,
-    messages: [
-      { role: "system", content: systemPrompt },
-      { role: "user", content: userPrompt },
-    ],
-    max_tokens: maxTokens,
-  });
-
-  const content = completion.choices[0]?.message?.content;
-  return content ? stripMarkdown(content.trim()) : null;
-}
-
-export async function completeWithClaude(
+export async function complete(
   systemPrompt: string,
   userPrompt: string,
   maxTokens: number
@@ -62,19 +29,7 @@ export async function completeWithClaude(
   });
 
   const textBlock = message.content.find((b) => b.type === "text");
-  return textBlock && "text" in textBlock
-    ? (textBlock.text?.trim() ?? null)
-    : null;
-}
-
-export async function complete(
-  systemPrompt: string,
-  userPrompt: string,
-  maxTokens: number
-): Promise<string | null> {
-  const provider = process.env.AI_PROVIDER ?? "azure";
-  if (provider.toLowerCase() === "anthropic") {
-    return completeWithClaude(systemPrompt, userPrompt, maxTokens);
-  }
-  return completeWithAzure(systemPrompt, userPrompt, maxTokens);
+  const content =
+    textBlock && "text" in textBlock ? textBlock.text?.trim() ?? null : null;
+  return content ? stripMarkdown(content) : null;
 }
