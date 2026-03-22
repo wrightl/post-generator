@@ -14,13 +14,19 @@ jobs:
         working-directory: src
     steps:
       - uses: actions/checkout@v6.0.2
-      
+
       - uses: actions/setup-node@v6.3.0
         with:
           node-version: 'latest'
           cache: 'npm'
           cache-dependency-path: src/package-lock.json
-          
+
       - run: npm ci
-      
+
+      - name: Run database migrations
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: npm run db:migrate
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+
       - run: npm run build
