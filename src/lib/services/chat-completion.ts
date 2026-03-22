@@ -13,7 +13,8 @@ export async function complete(
   maxTokens: number
 ): Promise<string | null> {
   const apiKey = process.env.ANTHROPIC_API_KEY;
-  const model = process.env.ANTHROPIC_MODEL ?? "claude-sonnet-4-20250514";
+  const model =
+    process.env.ANTHROPIC_MODEL?.trim() || "claude-sonnet-4-20250514";
 
   if (!apiKey) {
     throw new Error("Anthropic not configured");
